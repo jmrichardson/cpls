@@ -40,6 +40,10 @@ if (length(match) > 0) {
   }
 }
 
+# Create directories if they don't exist (Git doesn't sync empty dir)
+dir.create('logs', showWarnings = FALSE)
+dir.create('tmp', showWarnings = FALSE)
+
 # Initialize log
 logFile='logs/system.log'
 log <- create.logger(level='INFO',logfile=logFile)

@@ -1,5 +1,5 @@
 # Use for testing purposes
-test = TRUE
+test = FALSE
 
 # Load required libraries
 library(RCurl)
@@ -14,6 +14,7 @@ library(base64)
 library(ggplot2)
 library(xtable)
 library(gbm)
+
 
 # Set correct working directory to use relative paths
 cmdArgs <- commandArgs(trailingOnly = FALSE)
@@ -39,21 +40,27 @@ if (length(match) > 0) {
   }
 }
 
-# Load pre-built GBM model
-load('models/fitGbm.rda')
-
 # Initialize log
-log <- create.logger(level='INFO',logfile='logs/system.log')
+logFile='logs/system.log'
+log <- create.logger(level='INFO',logfile=logFile)
 info(log,'-------------------------------------')
 info(log,'Starting Command Line PLS Version 1.0')
 
+
+# Load pre-built GBM model
+info(log,'Loading machine learning model')
+load('data/fitGbm.rda')
+
+
 # Load cPLS configuration
-source('config.R')
+info(log,'Importing configuration')
+source('config/config.R')
 
 
-# Load all users from accounts sub-directory (must end with .acc extension)
+# Load all users from config sub-directory (must end with .acc extension)
+info(log,'Importing User Accounts')
 users <- list()
-files <- list.files(path="accounts", pattern="*.acc", full.names=T, recursive=FALSE)
+files <- list.files(path="config", pattern="*.acc", full.names=T, recursive=FALSE)
 for (file in files) {
   lc=list()
   source(file)
@@ -64,7 +71,9 @@ for (file in files) {
 # Load helper functions
 source('funcs.R')
 
-# Start continous loop
+
+# Start continous loop to wait for scheduled execution
+info(log,'Load complete.  Waiting for scheduled start time ...')
 while (1) {
 
   # Get current California time and start at appropriate time
@@ -73,6 +82,11 @@ while (1) {
 
   # Start system only at given start times
   if (hmPST %in% startTimes | test == TRUE) {
+        
+    # Read log file (connection)
+    closeAllConnections()
+    con <- file(logFile,"r")
+    seek(con,where=0,origin='end')
     
     # Obtain initial cash for each user
     for (i in 1:length(users)) {
@@ -82,21 +96,21 @@ while (1) {
                                                                              'Accept' = "application/json",
                                                                              'Content-type' = "application/json"))
         if ( is.null(users[[i]]$pre$jsonCash) | length(users[[i]]$pre$jsonCash) == 0 ) {
-          warn(log,paste('User(',users[[i]]$name,') - Unable to obtain available cash (Null API Response). Attempt: ',attempt,sep=""))
+          warn(log,paste('User (',users[[i]]$name,') - Unable to obtain available cash (Null API Response). Attempt: ',attempt,sep=""))
           next
         }
         if ( ! grepl("availableCash",users[[i]]$pre$jsonCash) ) {
-          warn(log,paste('User(',users[[i]]$name,') - Unable to obtain available cash (Invalid API Response). Attempt: ',attempt,sep=""))
-          warn(log,paste('User(',users[[i]]$name,') - API Response: ', users[[i]]$pre$jsonCash,sep=''))
+          warn(log,paste('User (',users[[i]]$name,') - Unable to obtain available cash (Invalid API Response). Attempt: ',attempt,sep=""))
+          warn(log,paste('User (',users[[i]]$name,') - API Response: ', users[[i]]$pre$jsonCash,sep=''))
           next
         }
         users[[i]]$pre$cash <- fromJSON(users[[i]]$pre$jsonCash)$availableCash
         if ( ! is.numeric(users[[i]]$pre$cash) ) {
-          warn(log,paste('User(',users[[i]]$name,') - Unable to obtain available cash (Non-numeric API Response). Attempt: ',attempt,sep=""))
-          warn(log,paste('User(',users[[i]]$name,') - API Response: ', users[[i]]$pre$jsonCash,sep=''))
+          warn(log,paste('User (',users[[i]]$name,') - Unable to obtain available cash (Non-numeric API Response). Attempt: ',attempt,sep=""))
+          warn(log,paste('User (',users[[i]]$name,') - API Response: ', users[[i]]$pre$jsonCash,sep=''))
           next
         }
-        info(log,paste('User(',users[[i]]$name,') - Initial cash available: ',printCurrency(users[[i]]$pre$cash),sep=""))
+        info(log,paste('User (',users[[i]]$name,') - Initial cash available: ',printCurrency(users[[i]]$pre$cash),sep=""))
         break
       }
     }
@@ -183,6 +197,8 @@ while (1) {
       }
     }
   
+    info(log,'Modeling available notes')
+    
     # Record start of modeling time
     startModelTime <- proc.time()
 
@@ -215,6 +231,7 @@ while (1) {
     startTime <- proc.time()
 
     # Process each user account
+    info(log,'Processing all user accounts')
     result <- mclapply(1:length(users),function(i){
       
       # Simple loop to stop execution on error
@@ -225,21 +242,23 @@ while (1) {
         
         # Verify we have cash available for user
         if(is.null(users[[i]]$pre$cash) | length(users[[i]]$pre$cash) == 0 | ! is.numeric(users[[i]]$pre$cash)) {
-          warn(log,paste('User(',users[[i]]$name,') - No initial cash amount (stopping)',sep=""))
+          warn(log,paste('User (',users[[i]]$name,') - No initial cash amount (stopping)',sep=""))
           break
         }
     
         # Verify have above minimum cash level + investment amount
         if(users[[i]]$pre$cash <= users[[i]]$minCash + users[[i]]$amountPerNote) {
-          warn(log,paste('User(',users[[i]]$name,') - Available cash $',users[[i]]$pre$cash,' less than $',
+          warn(log,paste('User (',users[[i]]$name,') - Available cash $',users[[i]]$pre$cash,' less than $',
                          users[[i]]$minCash + users[[i]]$amountPerNote,' (stopping)',sep=''))
           break
         }
         
         # Filter loans based on user provided criteria
         users[[i]]$filteredLoans <- loans %>%
+          arrange(desc(loans[[users[[i]]$sortField]])) %>%
           users[[i]]$filterCriteria() %>%
           select(id,grade,term)
+          
         
         users[[i]]$filteredLoans$grade <- factor(users[[i]]$filteredLoans$grade,levels=c("A","B","C","D","E","F","G"))
         users[[i]]$filteredLoans$term <- factor(users[[i]]$filteredLoans$term,levels=c("36","60"))
@@ -247,19 +266,20 @@ while (1) {
         # Stop processing if no filtered loans
         users[[i]]$totalFilteredLoans <- dim(users[[i]]$filteredLoans)[1]
         if (users[[i]]$totalFilteredLoans < 1) {
-          info(log,paste('User(',users[[i]]$name,') - No notes match filter criteria',sep=""))
+          info(log,paste('User (',users[[i]]$name,') - No notes match filter criteria',sep=""))
           break
         } else {
-          info(log,paste('User(',users[[i]]$name,') - Filter - ',users[[i]]$totalFilteredLoans,' filtered notes without allocation',sep=""))
+          info(log,paste('User (',users[[i]]$name,') - Total filtered notes: ',users[[i]]$totalFilteredLoans,sep=""))
         }
+        users[[i]]$numFilteredNotes <<- users[[i]]$totalFilteredLoans
         
         # Obtain filtered notes id's
         users[[i]]$filteredIds <- users[[i]]$filteredLoans$id
-        
-        # If user specified grade or term allocation, 
+
+        # If user specified grade or term allocation, get total notes in portfolio + filtered to do calcs
         if (exists('gradeAllocation', where=users[[i]]) | exists('termAllocation', where=users[[i]]) ) {
           if(is.null(users[[i]]$pre$portNoteCnt) | length(users[[i]]$pre$portNoteCnt) == 0 ) {
-            warn(log,paste('User(',users[[i]]$name,') - No initial portfolio information (stopping)',sep=""))
+            warn(log,paste('User (',users[[i]]$name,') - No initial portfolio information (stopping)',sep=""))
             break          
           }
           # Total number of notes in portfolio and new notes matching criteria
@@ -282,7 +302,7 @@ while (1) {
                                          maxPer=users[[i]]$maxPerGrade, i))
           
           users[[i]]$filteredIds <- users[[i]]$gradeFilter$id
-          info(log,paste('User(',users[[i]]$name,') - Filter - ',length(users[[i]]$filteredIds),' filtered notes with grade allocation',sep=""))
+          info(log,paste('User (',users[[i]]$name,') - Total filtered notes after grade allocation: ',length(users[[i]]$filteredIds),sep=""))
         }
         
         
@@ -302,39 +322,41 @@ while (1) {
                                          maxPer=users[[i]]$maxPerTerm, i))
           
           users[[i]]$filteredIds <- users[[i]]$termFilter$id
-          info(log,paste('User(',users[[i]]$name,') - Filter - ',length(users[[i]]$filteredIds),' filtered notes with term allocation',sep=""))
+          info(log,paste('User (',users[[i]]$name,') - Total filtered notes after term allocation: ',length(users[[i]]$filteredIds),sep=""))
         }
         
         # Select notes that are common between gradeFilter and termFilter (must satisfy both rules)
         if (exists('gradeAllocation', where=users[[i]]) & exists('termAllocation', where=users[[i]]) ) {
           users[[i]]$combIds <- c(users[[i]]$gradeFilter$id,users[[i]]$termFilter$id)
           users[[i]]$filteredIds <- users[[i]]$combIds[duplicated(users[[i]]$combIds)]
-          info(log,paste('User(',users[[i]]$name,') - Filter - ',length(users[[i]]$filteredIds),' filtered notes with grade and term allocation',sep=""))
+          info(log,paste('User (',users[[i]]$name,') - Total filtered notes after grade and term allocation: ',length(users[[i]]$filteredIds),sep=""))
         }
         
-        users[[i]]$totalFilteredLoans <- length(users[[i]]$filteredIds)
-        if (users[[i]]$totalFilteredLoans < 1) {
-          info(log,paste('User(',users[[i]]$name,') - No notes match filter criteria',sep=""))
+        # If no notes after term and grade allocation filter, then break
+        if (length(users[[i]]$filteredIds) < 1) {
+          info(log,paste('User (',users[[i]]$name,') - No notes match filter criteria after allocation',sep=""))
           break
         }
         
-        # Total number of filtered notes
-        users[[i]]$numFilteredNotes <<- length(users[[i]]$filteredIds)
-        
-        # Sort filtered notes by sortField
-        users[[i]]$filteredNotes<-loans[loans$id %in% users[[i]]$filteredIds,]
-        users[[i]]$filteredNotesSorted<-arrange(users[[i]]$filteredNotes,desc(eval(parse(text=paste('users[[i]]$filteredNotes$',users[[i]]$sortField,setp='')))))
-     
+        # Sort filtered ids again (in case allocation rearranged)
+        tmp <- loans[loans$id %in% users[[i]]$filteredIds,]
+        users[[i]]$filteredIds <- arrange(tmp,desc(tmp[[users[[i]]$sortField]]))$id
+
         # Set the maximum notes to order based on available cash and investment amount per note
         users[[i]]$maxNotesPerCash <- floor(users[[i]]$pre$cash / users[[i]]$amountPerNote)
-        users[[i]]$filteredIds <- head(users[[i]]$filteredNotesSorted$id,users[[i]]$maxNotesPerCash)
+        if (length(users[[i]]$filteredIds) > users[[i]]$maxNotesPerCash) {
+          users[[i]]$filteredIds <- head(users[[i]]$filteredNotesSorted$id,users[[i]]$maxNotesPerCash)
+          info(log,paste('User (',users[[i]]$name,') - Notes to order based on available cash: ',length(users[[i]]$filteredIds),sep=""))
+        }
         
         # Limit maximum notes per order
-        if(users[[i]]$maxNotesPerOrder) 
+        if(users[[i]]$maxNotesPerOrder < length(users[[i]]$filteredIds)) {
           users[[i]]$filteredIds <- head(users[[i]]$filteredIds,users[[i]]$maxNotesPerOrder)
+          info(log,paste('User (',users[[i]]$name,') - Max notes per order: ',length(users[[i]]$filteredIds),sep=""))
+        }
         
         users[[i]]$filteredIds <<- users[[i]]$filteredIds
-        info(log,paste('User(',users[[i]]$name,') - Notes to be ordered: ',length(users[[i]]$filteredIds),sep=""))
+        info(log,paste('User (',users[[i]]$name,') - Total notes to order: ',length(users[[i]]$filteredIds),sep=""))
         
         ##################
         ### Order code ###
@@ -371,13 +393,13 @@ while (1) {
                                                                                                  'Accept' = "application/json",
                                                                                                  'Content-type' = "application/json")))
           if ( is.null(users[[i]]$resultOrderJSON) | length(users[[i]]$resultOrderJSON) == 0 ) {
-            error(log,paste('User(',users[[i]]$name,') - Order Error (Empty API Response)',sep=""))
-            error(log,paste('User(',users[[i]]$name,') - API Response: ', users[[i]]$resultOrderJSON,sep=''))
+            error(log,paste('User (',users[[i]]$name,') - Order Error (Empty API Response)',sep=""))
+            error(log,paste('User (',users[[i]]$name,') - API Response: ', users[[i]]$resultOrderJSON,sep=''))
             break
           }
           if ( ! grep("orderInstructId",users[[i]]$resultOrderJSON) ) {
-            error(log,paste('User(',users[[i]]$name,') - Order Error (Invalid API Resposne)',sep=""))
-            error(log,paste('User(',users[[i]]$name,') - API Response: ', users[[i]]$resultOrderJSON,sep=''))
+            error(log,paste('User (',users[[i]]$name,') - Order Error (Invalid API Resposne)',sep=""))
+            error(log,paste('User (',users[[i]]$name,') - API Response: ', users[[i]]$resultOrderJSON,sep=''))
             break
           }
           users[[i]]$resultOrder <- fromJSON(users[[i]]$resultOrderJSON)
@@ -400,23 +422,25 @@ while (1) {
         users[[i]]$elapsedOrderTime <<- round((proc.time() - users[[i]]$startOrderTime)[3],2)
         users[[i]]$elapsedTotalTime <<- users[[i]]$elapsedProcTime + users[[i]]$elapsedOrderTime
         
-        info(log,paste('User(',users[[i]]$name,') - Order submission complete',sep=""))
+        info(log,paste('User (',users[[i]]$name,') - Order submitted',sep=""))
         
         # 
         # # CSV report of new notes and auto invest actions
-        # info(log,paste('User(',users[[i]]$name,') - Writing new loans CSV file',sep=""))
+        # info(log,paste('User (',users[[i]]$name,') - Writing new loans CSV file',sep=""))
         # users[[i]]$newLoansCSV <- merge(users[[i]]$resultOrder$orderConfirmations, loans, by.x='loanId', by.y='id',all=TRUE)
         # users[[i]]$newLoansCSV$executionStatus <- gsub("NULL","",as.character(users[[i]]$newLoansCSV$executionStatus))
         # write.csv(users[[i]]$newLoansCSV,row.names=FALSE,na='',file=paste('reports/',gsub(' ','_',users[[i]]$name),'/new_listed_notes.csv',sep=''))
             
       }
     },mc.cores=cores)
-    stop()
+    
+    # Read 
+    lastLog <- readLines(con)
+    close(con)
+    
     # Analyze portfolio for all users
     source('portfolio.R', local=TRUE)
 
-    stop()  
-    
     # Create report per user
     source('report.R', local=TRUE)
     

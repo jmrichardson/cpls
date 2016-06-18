@@ -30,4 +30,3 @@ getSample <- function(val,field,filteredCnt,maxPer,i) {
     sub[sample(nrow(sub), sel), ][1]
   }
 }
-

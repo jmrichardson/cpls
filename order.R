@@ -41,12 +41,11 @@ if (length(match) > 0) {
 }
 
 # Create directories if they don't exist (Git doesn't sync empty dir)
-dir.create('config', showWarnings = FALSE)
-dir.create('logs', showWarnings = FALSE)
+dir.create('store', showWarnings = FALSE)
 dir.create('tmp', showWarnings = FALSE)
 
 # Initialize log
-logFile='logs/system.log'
+logFile='store/system.log'
 log <- create.logger(level='INFO',logfile=logFile)
 info(log,'-------------------------------------')
 info(log,'Starting Command Line PLS Version 1.0')
@@ -59,13 +58,13 @@ load('data/fitGbm.rda')
 
 # Load cPLS configuration
 info(log,'Importing configuration')
-source('config/config.R')
+source('store/config.R')
 
 
-# Load all users from config sub-directory (must end with .acc extension)
+# Load all users from store sub-directory (must end with .acc extension)
 info(log,'Importing User Accounts')
 users <- list()
-files <- list.files(path="config", pattern="*.acc", full.names=T, recursive=FALSE)
+files <- list.files(path="store", pattern="*.acc", full.names=T, recursive=FALSE)
 for (file in files) {
   lc=list()
   source(file)
@@ -101,7 +100,7 @@ while (1) {
     # Obtain initial cash for each user
     for (i in 1:length(users)) {
       for (attempt in 1:5) {
-        users[[i]]$pre$jsonCash <- getURL(paste("https://api.lendingclub.com/api/investor/",apiVersion,"/accounts/",users[[i]]$accID,"/availablecash",sep=''),
+        users[[i]]$pre$jsonCash <- getURL(paste("https://api.lendingclub.com/api/investor/",apiVersion,"/store/",users[[i]]$accID,"/availablecash",sep=''),
                                                                               httpheader = c('Authorization' = users[[i]]$token,
                                                                              'Accept' = "application/json",
                                                                              'Content-type' = "application/json"))

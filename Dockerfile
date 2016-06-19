@@ -24,7 +24,7 @@ WORKDIR $HOME
 USER user
 
 # Clone GitHub cPLS repository
-RUN git clone https://github.com/jmrichardson/cPLS
+RUN git clone https://github.com/jmrichardson/cPLS && echo 2
 
 
 

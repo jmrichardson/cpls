@@ -32,23 +32,18 @@ lc$gradeAllocation = c("A" = 0, "B" = .20, "C" = .60, "D" = .60, "E" = .1, "F" =
 # Maximum term allocation (comment out for no term allocation)
 lc$termAllocation = c("36" = .60, "60" = .60)
 
+# Report criteria
+lc$reportCriteria=c('id','intRate','grade','purpose','inqLast6Mths','model')
+
 # Filter Criteria
 lc$filterCriteria <- function (x)  {
   filter(x,
     intRate >= 16 &
     ( grade == 'C' | grade == 'D' | grade == 'E') &
-    inqLast6Mths <= 2 &
     delinq2Yrs <= 0 &
-    pubRec <= 0 &
-    model >= .88
+    model >= .85
   )
 }
 
-# Report criteria
-lc$reportCriteria=c('id','intRate','grade','purpose','inqLast6Mths','model')
 
-# Include portfolio in email report
-lc$mailIncludePortfolio = TRUE
 
-# Include server logs in email report
-lc$mailIncludeLogs = TRUE

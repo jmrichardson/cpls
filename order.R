@@ -41,6 +41,7 @@ if (length(match) > 0) {
 }
 
 # Create directories if they don't exist (Git doesn't sync empty dir)
+dir.create('config', showWarnings = FALSE)
 dir.create('logs', showWarnings = FALSE)
 dir.create('tmp', showWarnings = FALSE)
 
@@ -71,6 +72,11 @@ for (file in files) {
   users <- append(users,list(lc))
   info(log,paste("Importing user: ",lc$name))
 }
+if (length(users)==0) {
+  error(log,'No user accounts configured')
+  stop('No user accounts configured')
+}
+
 
 # Load helper functions
 source('funcs.R')

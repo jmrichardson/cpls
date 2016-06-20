@@ -25,34 +25,15 @@ config <- 'store/config.R'
 # Load helper functions
 source('funcs.R')
 
-# Set correct working directory to use relative paths
-cmdArgs <- commandArgs(trailingOnly = FALSE)
-needle <- "--file="
-match <- grep(needle, cmdArgs)
-if (length(match) > 0) {
-  # Run from script with --file option
-  setwd(dirname(normalizePath(sub(needle, "", cmdArgs[match]))))
-} else {
-  if (! is.null(sys.frames())) {
-    # Sourced via R console
-    setwd(dirname(normalizePath(sys.frames()[[1]]$ofile,winslash='/')))
-    print('john')
-  } else {
-    # Run from code snippets (RStudio development)
-    if ( dir.exists('/home/john/Dropbox/cpls') ) {
-      setwd("/home/john/Dropbox/cpls")
-    } else if ( dir.exists('/home/user/cpls') ) {
-      setwd("/home/user/cpls")
-    } else {
-      setwd("C:/Users/john/Dropbox/cpls")
-    }
-  }
-}
-
-
 # Create directories if they don't exist
 dir.create('store', showWarnings = FALSE)
 dir.create('tmp', showWarnings = FALSE)
+
+if(file.exists('home.R')) {
+  source('home.R')
+} else {
+  setwd('/home/user/cpls')
+}
 
 
 # Initialize log

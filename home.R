@@ -1,4 +1,4 @@
-# Set home directory
+# Set home directory 
 
 # Set correct working directory to use relative paths
 cmdArgs <- commandArgs(trailingOnly = FALSE)

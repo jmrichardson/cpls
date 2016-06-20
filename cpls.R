@@ -18,22 +18,26 @@ library(ggplot2)
 library(xtable)
 library(gbm)
 
-# Set config params
-model <- 'data/fitGbm.rda'
-config <- 'store/config.R'
-
-# Load helper functions
-source('funcs.R')
-
-# Create directories if they don't exist
-dir.create('store', showWarnings = FALSE)
-dir.create('tmp', showWarnings = FALSE)
-
+# Set proper home directory
 if(file.exists('home.R')) {
   source('home.R')
 } else { 
   setwd('/home/user/cpls')
 }
+
+
+# Set config params
+model <- 'data/fitGbm.rda'
+config <- 'store/config.R'
+
+
+# Load helper functions
+source('funcs.R')
+
+
+# Create directories if they don't exist
+dir.create('store', showWarnings = FALSE)
+dir.create('tmp', showWarnings = FALSE)
 
 
 # Initialize log

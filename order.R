@@ -15,6 +15,12 @@ library(ggplot2)
 library(xtable)
 library(gbm)
 
+# Set config params
+model <- 'data/fitGbm.rda'
+config <- 'store/config.R'
+
+# Load helper functions
+source('funcs.R')
 
 # Set correct working directory to use relative paths
 cmdArgs <- commandArgs(trailingOnly = FALSE)
@@ -40,7 +46,7 @@ if (length(match) > 0) {
   }
 }
 
-# Create directories if they don't exist (Git doesn't sync empty dir)
+# Create directories if they don't exist
 dir.create('store', showWarnings = FALSE)
 dir.create('tmp', showWarnings = FALSE)
 
@@ -52,13 +58,15 @@ info(log,'Starting Command Line PLS Version 1.0')
 
 
 # Load pre-built GBM model
+reqFile(model)
 info(log,'Loading machine learning model')
-load('data/fitGbm.rda')
+load(model)
 
 
 # Load cPLS configuration
+reqFile(config)
 info(log,'Importing configuration')
-source('store/config.R')
+source(config)
 
 
 # Load all users from store sub-directory (must end with .acc extension)
@@ -72,13 +80,8 @@ for (file in files) {
   info(log,paste("Importing user: ",lc$name))
 }
 if (length(users)==0) {
-  error(log,'No user accounts configured')
-  stop('No user accounts configured')
+  err('No user accounts configured')
 }
-
-
-# Load helper functions
-source('funcs.R')
 
 
 # Start continous loop to wait for scheduled execution
@@ -201,7 +204,7 @@ while (1) {
     } else {
       # Only continue if note list detected
       if(!list) { 
-        error(log,"New notes listing not detected")
+        warn(log,"New notes listing not detected")
         next
       }
     }
@@ -402,13 +405,13 @@ while (1) {
                                                                                                  'Accept' = "application/json",
                                                                                                  'Content-type' = "application/json")))
           if ( is.null(users[[i]]$resultOrderJSON) | length(users[[i]]$resultOrderJSON) == 0 ) {
-            error(log,paste('User (',users[[i]]$name,') - Order Error (Empty API Response)',sep=""))
-            error(log,paste('User (',users[[i]]$name,') - API Response: ', users[[i]]$resultOrderJSON,sep=''))
+            err(paste('User (',users[[i]]$name,') - Order Error (Empty API Response)',sep=""))
+            err(paste('User (',users[[i]]$name,') - API Response: ', users[[i]]$resultOrderJSON,sep=''))
             break
           }
           if ( ! grep("orderInstructId",users[[i]]$resultOrderJSON) ) {
-            error(log,paste('User (',users[[i]]$name,') - Order Error (Invalid API Resposne)',sep=""))
-            error(log,paste('User (',users[[i]]$name,') - API Response: ', users[[i]]$resultOrderJSON,sep=''))
+            err(paste('User (',users[[i]]$name,') - Order Error (Invalid API Resposne)',sep=""))
+            err(paste('User (',users[[i]]$name,') - API Response: ', users[[i]]$resultOrderJSON,sep=''))
             break
           }
           users[[i]]$resultOrder <- fromJSON(users[[i]]$resultOrderJSON)

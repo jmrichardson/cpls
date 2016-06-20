@@ -1,0 +1,10 @@
+[ 2016-06-20 10:43:56 ] INFO ------------------------------------- 
+[ 2016-06-20 10:43:56 ] INFO Starting Command Line PLS Version 1.0 
+[ 2016-06-20 10:44:03 ] ERROR Configuration file does not exist: store/config.R 
+[ 2016-06-20 10:51:12 ] ERROR Configuration file does not exist: store/config.R 
+[ 2016-06-20 10:51:46 ] ERROR Configuration file does not exist: store/config.R 
+[ 2016-06-20 10:52:10 ] ERROR Configuration file does not exist: store/config.R 
+[ 2016-06-20 10:52:17 ] ERROR Configuration file does not exist: store/config.R 
+[ 2016-06-20 10:52:58 ] ERROR Configuration file does not exist: store/config.R 
+[ 2016-06-20 10:53:14 ] ERROR Configuration file does not exist: store/config.R 
+[ 2016-06-20 11:18:40 ] INFO Loading machine learning model 

@@ -30,3 +30,16 @@ getSample <- function(val,field,filteredCnt,maxPer,i) {
     sub[sample(nrow(sub), sel), ][1]
   }
 }
+
+# Error handling function
+err <- function(str) {
+  error(log,str)
+  stop(str, call.=FALSE) 
+}
+
+# Check for file existance
+reqFile <- function(file) {
+  if (!file.exists(file)) {
+    err('Configuration file does not exist: store/config.R')
+  }
+}

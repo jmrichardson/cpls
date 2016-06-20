@@ -5,5 +5,5 @@
 store/config.R
 store/system.log
 store/*.acc
-store/system.log
 *.log
+store/system.log

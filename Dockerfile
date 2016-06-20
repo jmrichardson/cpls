@@ -4,7 +4,7 @@ FROM ubuntu:14.04
 MAINTAINER John Richardson contact@peerlendingserver.com
 
 # Description Label
-LABEL Description="Command Line Peer Lending Server cPLS"
+LABEL Description="Command Line Peer Lending Server cpls"
 
 # Install R and Required Packages
 RUN sh -c 'echo "deb http://cran.rstudio.com/bin/linux/ubuntu trusty/" >> /etc/apt/sources.list'
@@ -28,16 +28,15 @@ RUN usermod -a -G sudo user
 WORKDIR $HOME
 USER user
 
-# Clone GitHub cPLS repository
-RUN git clone https://github.com/jmrichardson/cPLS && echo 6
+# Clone GitHub cpls repository
+RUN git clone https://github.com/jmrichardson/cpls && echo 7
 
 # Run on start
-# CMD /usr/bin/Rscript --vanilla /home/user/cPLS/cpls.R >> /home/user/cPLS/store/console.log 2>&1
-CMD /usr/bin/Rscript --vanilla /home/user/cPLS/cpls.R
+CMD /usr/bin/Rscript --vanilla /home/user/cpls/cpls.R >> /home/user/cpls/store/console.log 2>&1
 
-# docker run -v /home/john/cpls:/home/user/cPLS/store cpls cp /home/user/cPLS/data/config.R /home/user/cPLS/store/
-# docker run -v /home/john/cpls:/home/user/cPLS/store cpls cp /home/user/cPLS/data/user_name.acc /home/user/cPLS/store/
-# docker run -v /home/john/cpls:/home/user/cPLS/store cpls
-# docker run -v /home/john/cpls:/home/user/cPLS/store -it cpls bash
+# docker run -v /home/john/cpls:/home/user/cpls/store cpls cp /home/user/cpls/data/config.R /home/user/cpls/store/
+# docker run -v /home/john/cpls:/home/user/cpls/store cpls cp /home/user/cpls/data/user_name.acc /home/user/cpls/store/
+# docker run -v /home/john/cpls:/home/user/cpls/store cpls
+# docker run -v /home/john/cpls:/home/user/cpls/store -it cpls bash
 
 # docker build -t cpls --force-rm=true --rm=true .

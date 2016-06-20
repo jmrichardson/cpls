@@ -31,17 +31,12 @@ USER user
 # Clone GitHub cPLS repository
 RUN git clone https://github.com/jmrichardson/cPLS && echo 4
 
-# Create required directories
-RUN mkdir /home/user/cPLS/logs/
-RUN mkdir /home/user/cPLS/tmp/
-RUN mkdir /home/user/cPLS/config/
-
 # Run on start
 CMD /usr/bin/Rscript --vanilla /home/user/cPLS/order.R >> /home/user/cPLS/logs/console.log 2>&1
 
-# docker run -v /home/john/test:/home/user/cPLS/config cpls cp /home/user/cPLS/data/config.tpl /home/user/cPLS/config/
-# docker run -v /home/john/test:/home/user/cPLS/config cpls cp /home/user/cPLS/data/account.tpl /home/user/cPLS/config/
-# docker run -v /home/john/test:/home/user/cPLS/config cpls
-# docker run -v /home/john/test:/home/user/cPLS/config -it cpls bash
+# docker run -v /home/john/cpls:/home/user/cPLS/store cpls cp /home/user/cPLS/data/config.R /home/user/cPLS/store/
+# docker run -v /home/john/cpls:/home/user/cPLS/store cpls cp /home/user/cPLS/data/user_name.acc /home/user/cPLS/store/
+# docker run -v /home/john/cpls:/home/user/cPLS/store cpls
+# docker run -v /home/john/cpls:/home/user/cPLS/store -it cpls bash
 
 # docker build -t cpls --force-rm=true --rm=true .

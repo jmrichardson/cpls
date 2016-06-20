@@ -1,7 +1,7 @@
 # Modes available: 
 # normal:  Normal operation
 # test: 
-# run: 
+# runOnce: 
 opMode <- 'normal'
 
 # Load required libraries
@@ -49,15 +49,18 @@ if (length(match) > 0) {
   }
 }
 
+
 # Create directories if they don't exist
 dir.create('store', showWarnings = FALSE)
 dir.create('tmp', showWarnings = FALSE)
+
 
 # Initialize log
 logFile='store/system.log'
 log <- create.logger(level='INFO',logfile=logFile)
 info(log,'-------------------------------------')
 info(log,'Starting Command Line PLS Version 1.0')
+info(log,paste('Operation Mode:',opMode))
 
 
 # Load pre-built GBM model
@@ -96,7 +99,7 @@ while (1) {
   hmPST <- paste(hour(nowPST),minute(nowPST),sep=":")
 
   # Start system only at given start times
-  if (hmPST %in% startTimes | test == TRUE) {
+  if ((hmPST %in% startTimes& opMode=='normal') | opMode == 'runOnce' | opMode == 'test') {
         
     # Read log file (connection)
     closeAllConnections()

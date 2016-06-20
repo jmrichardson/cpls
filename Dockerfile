@@ -29,7 +29,7 @@ WORKDIR $HOME
 USER user
 
 # Clone GitHub cPLS repository
-RUN git clone https://github.com/jmrichardson/cPLS && echo 3
+RUN git clone https://github.com/jmrichardson/cPLS && echo 4
 
 # Create required directories
 RUN mkdir /home/user/cPLS/logs/

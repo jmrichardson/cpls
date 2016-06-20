@@ -12,3 +12,12 @@
 [ 2016-06-20 11:34:14 ] INFO Starting Command Line PLS Version 1.0 
 [ 2016-06-20 11:34:14 ] INFO Loading machine learning model 
 [ 2016-06-20 11:34:14 ] ERROR Configuration file does not exist: store/config.R 
+[ 2016-06-20 12:52:09 ] INFO ------------------------------------- 
+[ 2016-06-20 12:52:09 ] INFO Starting Command Line PLS Version 1.0 
+[ 2016-06-20 12:52:09 ] INFO Loading machine learning model 
+[ 2016-06-20 12:52:09 ] INFO Importing configuration 
+[ 2016-06-20 12:52:09 ] INFO Importing User Accounts 
+[ 2016-06-20 12:52:09 ] INFO Importing user:  John Richardson 
+[ 2016-06-20 12:52:09 ] INFO Load complete.  Waiting for scheduled start time ... 
+[ 2016-06-20 12:52:12 ] WARN User (John Richardson) - Unable to obtain available cash (Invalid API Response). Attempt: 1 
+[ 2016-06-20 12:52:12 ] WARN User (John Richardson) - API Response:  

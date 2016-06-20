@@ -38,13 +38,13 @@ if (length(match) > 0) {
     setwd(dirname(normalizePath(sys.frames()[[1]]$ofile,winslash='/')))
     print('john')
   } else {
-    # Run from RStudio (development - these are my home dirs)
-    if ( file.exists('/home/john') ) {
-      setwd("/home/john/Dropbox/cPLS")
-    } else if ( file.exists('/home/user') ) {
-      setwd("/home/user/cPLS")
+    # Run from code snippets (RStudio development)
+    if ( dir.exists('/home/john/Dropbox/cpls') ) {
+      setwd("/home/john/Dropbox/cpls")
+    } else if ( dir.exists('/home/user/cpls') ) {
+      setwd("/home/user/cpls")
     } else {
-      setwd("C:/Users/john/Dropbox/cPLS")
+      setwd("C:/Users/john/Dropbox/cpls")
     }
   }
 }
@@ -69,7 +69,7 @@ info(log,'Loading machine learning model')
 load(model)
 
 
-# Load cPLS configuration
+# Load cpls configuration
 reqFile(config)
 info(log,'Importing configuration')
 source(config)

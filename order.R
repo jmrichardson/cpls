@@ -103,7 +103,7 @@ while (1) {
     # Obtain initial cash for each user
     for (i in 1:length(users)) {
       for (attempt in 1:5) {
-        users[[i]]$pre$jsonCash <- getURL(paste("https://api.lendingclub.com/api/investor/",apiVersion,"/store/",users[[i]]$accID,"/availablecash",sep=''),
+        users[[i]]$pre$jsonCash <- getURL(paste("https://api.lendingclub.com/api/investor/",apiVersion,"/accounts/",users[[i]]$accID,"/availablecash",sep=''),
                                                                               httpheader = c('Authorization' = users[[i]]$token,
                                                                              'Accept' = "application/json",
                                                                              'Content-type' = "application/json"))

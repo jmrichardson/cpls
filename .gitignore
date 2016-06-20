@@ -7,3 +7,4 @@ store/system.log
 store/*.acc
 *.log
 store/system.log
+home.R

@@ -43,3 +43,5 @@ reqFile <- function(file) {
     err('Configuration file does not exist: store/config.R')
   }
 }
+
+

@@ -1,5 +1,8 @@
-# Use for testing purposes
-test = TRUE
+# Modes available: 
+# normal:  Normal operation
+# test: 
+# run: 
+opMode <- 'normal'
 
 # Load required libraries
 library(RCurl)

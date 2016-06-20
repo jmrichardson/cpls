@@ -32,7 +32,7 @@ lc$gradeAllocation = c("A" = 0, "B" = .20, "C" = .60, "D" = .60, "E" = .1, "F" =
 # Maximum term allocation (comment out for no term allocation)
 lc$termAllocation = c("36" = .60, "60" = .60)
 
-# Report criteria
+# Report criteria (max 6 fields)
 lc$reportCriteria=c('id','intRate','grade','purpose','inqLast6Mths','model')
 
 # Filter Criteria

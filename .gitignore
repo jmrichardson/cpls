@@ -1,7 +1,8 @@
-*.acc
-config.R
-logs/system.log
 *.png
 .order.R.swp
 *.Rhistory
 *.swp
+store/config.R
+store/system.log
+store/*.acc
+store/system.log

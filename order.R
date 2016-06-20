@@ -1,5 +1,5 @@
 # Use for testing purposes
-test = FALSE
+test = TRUE
 
 # Load required libraries
 library(RCurl)

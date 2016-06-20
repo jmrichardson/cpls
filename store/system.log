@@ -8,3 +8,7 @@
 [ 2016-06-20 10:52:58 ] ERROR Configuration file does not exist: store/config.R 
 [ 2016-06-20 10:53:14 ] ERROR Configuration file does not exist: store/config.R 
 [ 2016-06-20 11:18:40 ] INFO Loading machine learning model 
+[ 2016-06-20 11:34:14 ] INFO ------------------------------------- 
+[ 2016-06-20 11:34:14 ] INFO Starting Command Line PLS Version 1.0 
+[ 2016-06-20 11:34:14 ] INFO Loading machine learning model 
+[ 2016-06-20 11:34:14 ] ERROR Configuration file does not exist: store/config.R 

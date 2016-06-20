@@ -31,7 +31,7 @@ dir.create('tmp', showWarnings = FALSE)
 
 if(file.exists('home.R')) {
   source('home.R')
-} else {
+} else { 
   setwd('/home/user/cpls')
 }
 

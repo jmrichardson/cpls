@@ -45,3 +45,41 @@ reqFile <- function(file) {
 }
 
 
+
+###############################################################################
+### Advanced configuration below - Do NOT MODIFY
+###############################################################################
+
+# How many cores/threads to use (1 per user).  Defaults to all cores
+# Windows can only have 1 core
+cores = detectCores()
+if (.Platform$OS.type == 'windows') {
+  cores = 1
+  shutdownCmd = "shutdown /t 0 /s"
+}
+  
+
+# LC API Version
+apiVersion = "v1"
+
+# API URL
+urlLoanList = paste("https://api.lendingclub.com/api/investor/", 
+                    apiVersion, 
+                    "/loans/listing",
+                    sep='')
+
+urlLoanListAll = paste("https://api.lendingclub.com/api/investor/", 
+                    apiVersion, 
+                    "/loans/listing?showAll=true",
+                    sep='')
+
+# Curl options
+options(RCurlOptions = list(verbose = FALSE, 
+                            followlocation = TRUE, 
+                            autoreferer = TRUE,
+                            ssl.verifypeer = FALSE,
+                            useragent = "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/30.0.1599.101 Safari/537.36")
+)
+
+
+

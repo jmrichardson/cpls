@@ -17,7 +17,7 @@ openssl libssl-dev libcurl4-openssl-dev
 # libcurl4-gnutls-dev
 
 # Install R packages
-RUN echo 'install.packages(c("RCurl", "jsonlite", "dplyr", "stringr", "lubridate", "log4r", "parallel", "plotrix", "base64", "ggplot2", "xtable", "gbm"), repos="http://cran.us.r-project.org", dependencies=TRUE)' > /tmp/packages.R \ && Rscript /tmp/packages.R
+RUN echo 'install.packages(c("RCurl", "jsonlite", "dplyr", "stringr", "lubridate", "log4r", "parallel", "plotrix", "base64", "ggplot2", "xtable", "gbm", "modeltools"), repos="http://cran.us.r-project.org", dependencies=TRUE)' > /tmp/packages.R \ && Rscript /tmp/packages.R
 
 # Set PDT timezone
 ENV TIMEZONE "America/Los_Angeles"      
@@ -33,7 +33,7 @@ WORKDIR $HOME
 USER user
 
 # Clone GitHub cpls repository
-RUN git clone https://github.com/jmrichardson/cpls && echo 12
+RUN git clone https://github.com/jmrichardson/cpls && echo 14
 
 # Run on start
 CMD /usr/bin/Rscript --vanilla /home/user/cpls/cpls.R >> /home/user/cpls/store/console.log 2>&1
@@ -42,7 +42,7 @@ CMD /usr/bin/Rscript --vanilla /home/user/cpls/cpls.R >> /home/user/cpls/store/c
 # docker run -v /home/john/cpls:/home/user/cpls/store cpls cp /home/user/cpls/data/config.R /home/user/cpls/store/
 # docker run -v /home/john/cpls:/home/user/cpls/store cpls cp /home/user/cpls/data/user_name.acc /home/user/cpls/store/
 
-# docker run -v /home/john/cpls:/home/user/cpls/store cpls /usr/bin/Rscript --vanilla --file=/home/user/cpls/cpls.R runOnce
+# docker run -v /home/john/cpls:/home/user/cpls/store cpls /usr/bin/Rscript --vanilla /home/user/cpls/cpls.R runOnce
 
 # docker run -v /home/john/cpls:/home/user/cpls/store -d cpls
 # docker run -v /home/john/cpls:/home/user/cpls/store -it cpls bash

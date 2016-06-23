@@ -106,10 +106,7 @@ while (1) {
     # Obtain initial cash for each user
     for (i in 1:length(users)) {
       for (attempt in 1:5) {
-        users[[i]]$pre$jsonCash <- getURL(paste("https://api.lendingclub.com/api/investor/",apiVersion,"/accounts/",users[[i]]$accID,"/availablecash",sep=''),
-                                                                              httpheader = c('Authorization' = users[[i]]$token,
-                                                                             'Accept' = "application/json",
-                                                                             'Content-type' = "application/json"))
+        users[[i]]$pre$jsonCash <- gURL(paste("https://api.lendingclub.com/api/investor/",apiVersion,"/accounts/",users[[i]]$accID,"/availablecash",sep=''),users[[i]]$token)
         if ( is.null(users[[i]]$pre$jsonCash) | length(users[[i]]$pre$jsonCash) == 0 ) {
           warn(log,paste('User (',users[[i]]$name,') - Unable to obtain available cash (Null API Response). Attempt: ',attempt,sep=""))
           next
@@ -131,9 +128,7 @@ while (1) {
     }
     
 
-    newJson <- getURL(urlLoanListAll,httpheader = c('Authorization' = users[[1]]$token,
-                                                     'Accept' = "application/json",
-                                                     'Content-type' = "application/json"))
+    newJson <- gURL(urlLoanListAll,users[[i]]$token)
     if ( is.null(newJson) | length(newJson) == 0 ) {
       warn(log,paste("List detection (",cnt," of ",num,") - Null API Response ",sep=''))
       next
@@ -162,9 +157,7 @@ while (1) {
       
       # Obtain starting note count
       for (attempt in 1:5) {
-        startJson <- getURL(urlLoanList,httpheader = c('Authorization' = users[[1]]$token,
-                                                       'Accept' = "application/json",
-                                                       'Content-type' = "application/json"))
+        startJson <- gURL(urlLoanList,users[[i]]$token)
         if ( is.null(startJson) | length(startJson) == 0 ) {
           warn(log,paste('Unable to obtain initial note count (Null API Response). Attempt: ',attempt,sep=""))
           next
@@ -196,9 +189,7 @@ while (1) {
         while (TRUE) {
           if(proc.time()[3] > apiTimeStart+1) { 
             apiTimeStart <- proc.time()[3]
-            newJson <- getURL(urlLoanList,httpheader = c('Authorization' = users[[1]]$token,
-                                                         'Accept' = "application/json",
-                                                         'Content-type' = "application/json"))
+            newJson <- gURL(urlLoanList,users[[i]]$token)
             apiTimeElapse <- proc.time()[3] - apiTimeStart
             break
           }
@@ -431,10 +422,7 @@ while (1) {
           users[[i]]$resultOrder <- resultOrder
         } else {
           stop('what the hell')
-          users[[i]]$resultOrderJSON <- postForm(users[[i]]$urlOrders,.opts=list(postfields = users[[i]]$orderJSON,
-                                                                                 httpheader = c('Authorization' = users[[i]]$token,
-                                                                                                 'Accept' = "application/json",
-                                                                                                 'Content-type' = "application/json")))
+          users[[i]]$resultOrderJSON <- pForm(users[[i]]$urlOrders,users[[i]]$token,users[[i]]$orderJSON)
           if ( is.null(users[[i]]$resultOrderJSON) | length(users[[i]]$resultOrderJSON) == 0 ) {
             err(paste('User (',users[[i]]$name,') - Order Error (Empty API Response)',sep=""))
             err(paste('User (',users[[i]]$name,') - API Response: ', users[[i]]$resultOrderJSON,sep=''))

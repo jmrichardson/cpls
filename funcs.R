@@ -45,6 +45,32 @@ reqFile <- function(file) {
 }
 
 
+# Function for getURL error handling
+gURL <- function(url,token) {
+  status <- tryCatch(getURL(url,
+                           httpheader = c('Authorization' = token,
+                           'Accept' = "application/json",
+                           'Content-type' = "application/json")),
+             error = function(e) {
+               warn(log,status)
+            })
+  return(status)
+}
+
+# Function for postForm error handling
+pFORM <- function(url,token,orderJSON) {
+  status <- tryCatch(postFORM(url,
+                              .opts=list(postfields = orderJSON,
+                              httpheader = c('Authorization' = token,
+                              'Accept' = "application/json",
+                              'Content-type' = "application/json"))),
+             error = function(e) {
+               warn(log,status)
+            })
+  return(status)
+}
+
+
 
 ###############################################################################
 ### Advanced configuration below - Do NOT MODIFY

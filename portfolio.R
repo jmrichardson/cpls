@@ -11,10 +11,7 @@ for (i in 1:length(users)) {
   # Obtain avaiable cash
   users[[i]]$attemptCash <- 1
   while(users[[i]]$attemptCash < 5) {
-    users[[i]]$post$jsonCash <- getURL(paste("https://api.lendingclub.com/api/investor/",apiVersion,"/accounts/",users[[i]]$accID,"/availablecash",sep=''),
-                                                                         httpheader = c('Authorization' = users[[i]]$token,
-                                                                        'Accept' = "application/json",
-                                                                        'Content-type' = "application/json"))
+    users[[i]]$post$jsonCash <- gURL(paste("https://api.lendingclub.com/api/investor/",apiVersion,"/accounts/",users[[i]]$accID,"/availablecash",sep=''),users[[i]]$token)
     if ( is.null(users[[i]]$post$jsonCash) | length(users[[i]]$post$jsonCash) == 0 ) {
       warn(log,paste('User (',users[[i]]$name,') - Unable to obtain post cash (Null API Response). Attempt: ',attempt,sep=""))
       users[[i]]$attemptCash <- users[[i]]$attemptCash + 1
@@ -41,10 +38,7 @@ for (i in 1:length(users)) {
   # Account summary
   users[[i]]$attemptSummary <- 1
   while(users[[i]]$attemptSummary < 5){
-    users[[i]]$post$jsonSummary <- getURL(paste("https://api.lendingclub.com/api/investor/",apiVersion,"/accounts/",users[[i]]$accID,"/summary",sep=''),
-                                                                                    httpheader = c('Authorization' = users[[i]]$token,
-                                                                                   'Accept' = "application/json",
-                                                                                   'Content-type' = "application/json"))
+    users[[i]]$post$jsonSummary <- gURL(paste("https://api.lendingclub.com/api/investor/",apiVersion,"/accounts/",users[[i]]$accID,"/summary",sep=''),users[[i]]$token)
     if ( is.null(users[[i]]$post$jsonSummary) | length(users[[i]]$post$jsonSummary) == 0 ) {
       warn(log,paste('User (',users[[i]]$name,') - Unable to obtain portfolio details. Attempt:',attempt,sep=""))
       users[[i]]$attemptSummary <- users[[i]]$attemptSummary + 1
@@ -75,10 +69,7 @@ for (i in 1:length(users)) {
   # Obtain current portfolio grade frequency and total note count
   users[[i]]$attemptNotesOwned <- 1
   while(users[[i]]$attemptNotesOwned < 5) {
-    users[[i]]$post$jsonNotesOwned <- getURL(paste("https://api.lendingclub.com/api/investor/",apiVersion,"/accounts/",users[[i]]$accID,"/detailednotes",sep=''),
-                                                                                          httpheader = c('Authorization' = users[[i]]$token,
-                                                                                         'Accept' = "application/json",
-                                                                                         'Content-type' = "application/json"))
+    users[[i]]$post$jsonNotesOwned <- gURL(paste("https://api.lendingclub.com/api/investor/",apiVersion,"/accounts/",users[[i]]$accID,"/detailednotes",sep=''),users[[i]]$token)
     if ( is.null(users[[i]]$post$jsonNotesOwned) | length(users[[i]]$post$jsonNotesOwned) == 0 ) {
       warn(log,paste('User (',users[[i]]$name,') - Problem obtaining notes owned. Attempt:',attempt,sep=""))
       users[[i]]$attemptSummary <- users[[i]]$attemptSummary + 1

@@ -33,7 +33,7 @@ WORKDIR $HOME
 USER user
 
 # Clone GitHub cpls repository
-RUN git clone https://github.com/jmrichardson/cpls && echo 10
+RUN git clone https://github.com/jmrichardson/cpls && echo 12
 
 # Run on start
 CMD /usr/bin/Rscript --vanilla /home/user/cpls/cpls.R >> /home/user/cpls/store/console.log 2>&1
@@ -41,6 +41,9 @@ CMD /usr/bin/Rscript --vanilla /home/user/cpls/cpls.R >> /home/user/cpls/store/c
 
 # docker run -v /home/john/cpls:/home/user/cpls/store cpls cp /home/user/cpls/data/config.R /home/user/cpls/store/
 # docker run -v /home/john/cpls:/home/user/cpls/store cpls cp /home/user/cpls/data/user_name.acc /home/user/cpls/store/
+
+# docker run -v /home/john/cpls:/home/user/cpls/store cpls /usr/bin/Rscript --vanilla --file=/home/user/cpls/cpls.R runOnce
+
 # docker run -v /home/john/cpls:/home/user/cpls/store -d cpls
 # docker run -v /home/john/cpls:/home/user/cpls/store -it cpls bash
 

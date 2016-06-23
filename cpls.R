@@ -12,6 +12,13 @@ library(ggplot2)
 library(xtable)
 library(gbm)
 
+# Set proper home directory
+if(file.exists('home.R')) {
+  source('home.R')
+} else { 
+  setwd('/home/user/cpls')
+}
+
 # Load helper functions
 source('funcs.R')
 
@@ -39,15 +46,6 @@ info(log,paste('Operation Mode:',opMode))
 
 ###################
 # opMode <- 'runOnce'
-
-
-
-# Set proper home directory
-if(file.exists('home.R')) {
-  source('home.R')
-} else { 
-  setwd('/home/user/cpls')
-}
 
 
 # Set config params

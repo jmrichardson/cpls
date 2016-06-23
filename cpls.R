@@ -1,9 +1,3 @@
-# Modes available: 
-# normal:  Normal operation
-# test: 
-# runOnce: 
-opMode <- 'normal'
-
 # Load required libraries
 library(RCurl)
 library(jsonlite)
@@ -18,6 +12,36 @@ library(ggplot2)
 library(xtable)
 library(gbm)
 
+# Load helper functions
+source('funcs.R')
+
+# Initialize log
+logFile='store/system.log'
+log <- create.logger(level='INFO',logfile=logFile)
+info(log,'-------------------------------------')
+info(log,'Starting Command Line PLS Version 1.0')
+
+
+# Set program operation mode (schedule, runOnce, test)
+opMode <- 'schedule'
+args<-commandArgs(TRUE)
+if(!is.na(args[1])) {
+  if(args[1]=='schedule' | args[1]=='runOnce' | args[1]=='test' ) { 
+    opMode <- args[1] 
+  } else {
+    print('asdf')
+    err('Invalid operation mode argument: Options are schedule, runOnce, test')
+  }
+}
+info(log,paste('Operation Mode:',opMode))
+
+
+
+###################
+# opMode <- 'runOnce'
+
+
+
 # Set proper home directory
 if(file.exists('home.R')) {
   source('home.R')
@@ -31,21 +55,9 @@ model <- 'data/fitGbm.rda'
 config <- 'store/config.R'
 
 
-# Load helper functions
-source('funcs.R')
-
-
 # Create directories if they don't exist
 dir.create('store', showWarnings = FALSE)
 dir.create('tmp', showWarnings = FALSE)
-
-
-# Initialize log
-logFile='store/system.log'
-log <- create.logger(level='INFO',logfile=logFile)
-info(log,'-------------------------------------')
-info(log,'Starting Command Line PLS Version 1.0')
-info(log,paste('Operation Mode:',opMode))
 
 
 # Load pre-built GBM model
@@ -61,14 +73,14 @@ source(config)
 
 
 # Load all users from store sub-directory (must end with .acc extension)
-info(log,'Importing User Accounts')
+info(log,'Loading user accounts')
 users <- list()
 files <- list.files(path="store", pattern="*.acc", full.names=T, recursive=FALSE)
 for (file in files) {
   lc=list()
   source(file)
   users <- append(users,list(lc))
-  info(log,paste("Importing user: ",lc$name))
+  info(log,paste("Importing user: ",lc$name,sep=''))
 }
 if (length(users)==0) {
   err('No user accounts configured')
@@ -76,7 +88,9 @@ if (length(users)==0) {
 
 
 # Start continous loop to wait for scheduled execution
-info(log,'Load complete.  Waiting for scheduled start time ...')
+info(log,'Software initialization complete.')
+if(opMode=='schedule') info(log,'Waiting for schedule start time ...')
+
 while (1) {
 
   # Get current California time and start at appropriate time
@@ -84,7 +98,7 @@ while (1) {
   hmPST <- paste(hour(nowPST),minute(nowPST),sep=":")
 
   # Start system only at given start times
-  if ((hmPST %in% startTimes& opMode=='normal') | opMode == 'runOnce' | opMode == 'test') {
+  if ((hmPST %in% startTimes& opMode=='schedule') | opMode == 'runOnce' | opMode == 'test') {
         
     # Read log file (connection)
     closeAllConnections()
@@ -118,88 +132,113 @@ while (1) {
       }
     }
     
-    info(log,"Starting loan list detection")
-    
-    # Obtain starting note count
-    for (attempt in 1:5) {
-      startJson <- getURL(urlLoanList,httpheader = c('Authorization' = users[[1]]$token,
+
+    newJson <- getURL(urlLoanListAll,httpheader = c('Authorization' = users[[1]]$token,
                                                      'Accept' = "application/json",
                                                      'Content-type' = "application/json"))
-      if ( is.null(startJson) | length(startJson) == 0 ) {
-        warn(log,paste('Unable to obtain initial note count (Null API Response). Attempt: ',attempt,sep=""))
+    if ( is.null(newJson) | length(newJson) == 0 ) {
+      warn(log,paste("List detection (",cnt," of ",num,") - Null API Response ",sep=''))
+      next
+    }
+    if ( ! grepl("pubRec",newJson) ) {
+      warn(log,paste("List detection (",cnt," of ",num,") - Invalid API response",sep=''))
+      next
+    }
+    loans = fromJSON(newJson)$loans
+    if ( ! nrow(loans) ) {
+        warn(log,paste("List detection (",cnt," of ",num,") - API Conversion Error",sep=''))
         next
-      }
-      if ( ! grepl("pubRec",startJson) ) {
-        warn(log,paste('Unable to obtain initial note count (Invalid API Response). Attempt: ',attempt,sep=""))
-        next
-      }
-      prevIds <- fromJSON(startJson)$loans$id
-      if ( ! length(prevIds) ) {
-        warn(log,paste('Unable to obtain initial note count (API Conversion Error). Attempt: ',attempt,sep=""))
-        next
-      }
-      info(log,paste("Previous note count:",length(prevIds)))
+    }
+    listTime=with_tz(now(),"America/Los_Angeles")
+    noteCount <- dim(loans)[1]
+    if (!is.numeric(noteCount)) {
+      err(log,'Error getting platform note count')
       break
     }
-
-    # List detection
-    list=FALSE
-    # Set default apiTime
-    apiTimeStart <- proc.time()[3]
-    if (test == TRUE) {
-      num <- 1
-    } else {
-      num <- maxNoteCount
-    }
-    for (cnt in 1:num) {
-      # Loop to wait 1 second between API calls
-      while (TRUE) {
-        if(proc.time()[3] > apiTimeStart+1) { 
-          apiTimeStart <- proc.time()[3]
-          newJson <- getURL(urlLoanList,httpheader = c('Authorization' = users[[1]]$token,
+    info(log,paste('Platform note count:',noteCount))
+      
+    # Start list detection only in schedule mode
+    if ( opMode == 'schedule') {
+    
+      info(log,"Starting loan list detection")
+      
+      # Obtain starting note count
+      for (attempt in 1:5) {
+        startJson <- getURL(urlLoanList,httpheader = c('Authorization' = users[[1]]$token,
                                                        'Accept' = "application/json",
                                                        'Content-type' = "application/json"))
-          apiTimeElapse <- proc.time()[3] - apiTimeStart
+        if ( is.null(startJson) | length(startJson) == 0 ) {
+          warn(log,paste('Unable to obtain initial note count (Null API Response). Attempt: ',attempt,sep=""))
+          next
+        }
+        if ( ! grepl("pubRec",startJson) ) {
+          warn(log,paste('Unable to obtain initial note count (Invalid API Response). Attempt: ',attempt,sep=""))
+          next
+        }
+        prevIds <- fromJSON(startJson)$loans$id
+        if ( ! length(prevIds) ) {
+          warn(log,paste('Unable to obtain initial note count (API Conversion Error). Attempt: ',attempt,sep=""))
+          next
+        }
+        info(log,paste("Previous note count:",length(prevIds)))
+        break
+      }
+  
+      # List detection
+      list=FALSE
+      # Set default apiTime
+      apiTimeStart <- proc.time()[3]
+      if (opMode == 'test') {
+        num <- 1
+      } else {
+        num <- maxNoteCount
+      }
+      for (cnt in 1:num) {
+        # Loop to wait 1 second between API calls
+        while (TRUE) {
+          if(proc.time()[3] > apiTimeStart+1) { 
+            apiTimeStart <- proc.time()[3]
+            newJson <- getURL(urlLoanList,httpheader = c('Authorization' = users[[1]]$token,
+                                                         'Accept' = "application/json",
+                                                         'Content-type' = "application/json"))
+            apiTimeElapse <- proc.time()[3] - apiTimeStart
+            break
+          }
+        }
+        if ( is.null(newJson) | length(newJson) == 0 ) {
+          warn(log,paste("List detection (",cnt," of ",num,") - Null API Response ",sep=''))
+          next
+        }
+        if ( ! grepl("pubRec",newJson) ) {
+          warn(log,paste("List detection (",cnt," of ",num,") - Invalid API response",sep=''))
+          next
+        }
+        loans = fromJSON(newJson)$loans
+        if ( ! nrow(loans) ) {
+            warn(log,paste("List detection (",cnt," of ",num,") - API Conversion Error",sep=''))
+            next
+        }
+        newIds <- loans$id
+        newNoteCount <- length(newIds)
+        
+        # Must have no previous notes in new notes, and greater than threshold to detect list
+        if ( ! any(prevIds %in% newIds) & newNoteCount > numNotesThresh ) {
+          list=TRUE
+          listTime=with_tz(now(),"America/Los_Angeles")
+          info(log,paste("List detected - New note count: ",newNoteCount,sep=''))
           break
+        } else {
+          info(log,paste("List detection (",cnt," of ",num,")",sep=''))
         }
       }
-      if ( is.null(newJson) | length(newJson) == 0 ) {
-        warn(log,paste("List detection (",cnt," of ",num,") - Null API Response ",sep=''))
-        next
-      }
-      if ( ! grepl("pubRec",newJson) ) {
-        warn(log,paste("List detection (",cnt," of ",num,") - Invalid API response",sep=''))
-        next
-      }
-      loans = fromJSON(newJson)$loans
-      if ( ! nrow(loans) ) {
-          warn(log,paste("List detection (",cnt," of ",num,") - API Conversion Error",sep=''))
-          next
-      }
-      newIds <- loans$id
-      newNoteCount <- length(newIds)
-      
-      # Must have no previous notes in new notes, and greater than threshold to detect list
-      if ( ! any(prevIds %in% newIds) & newNoteCount > numNotesThresh ) {
-        list=TRUE
-        listTime=with_tz(now(),"America/Los_Angeles")
-        info(log,paste("List detected - New note count: ",newNoteCount,sep=''))
-        break
-      } else {
-        info(log,paste("List detection (",cnt," of ",num,")",sep=''))
-      }
-    }
-
-    if(test == TRUE) {
-      listTime=with_tz(now(),"America/Los_Angeles")
-    } else {
+  
       # Only continue if note list detected
       if(!list) { 
         warn(log,"New notes listing not detected")
         next
       }
     }
-  
+
     info(log,'Modeling available notes')
     
     # Record start of modeling time
@@ -232,6 +271,7 @@ while (1) {
 
     # Record start time of selection process per user
     startTime <- proc.time()
+
 
     # Process each user account
     info(log,'Processing all user accounts')
@@ -361,10 +401,12 @@ while (1) {
         users[[i]]$filteredIds <<- users[[i]]$filteredIds
         info(log,paste('User (',users[[i]]$name,') - Total notes to order: ',length(users[[i]]$filteredIds),sep=""))
         
+
         ##################
         ### Order code ###
         ##################
 
+        
         # Create order JSON based on filtered Ids
         users[[i]]$order$aid <- users[[i]]$accID
         if (users[[i]]$portfolioId) {
@@ -386,7 +428,7 @@ while (1) {
         users[[i]]$startOrderTime <- proc.time()
 
         # Order notes
-        if (test == TRUE) {
+        if (opMode == 'test') {
           load('data/resultOrder.rda')
           users[[i]]$resultOrder <- resultOrder
         } else {
@@ -446,6 +488,11 @@ while (1) {
 
     # Create report per user
     source('report.R', local=TRUE)
+    
+    if (opMode == 'runOnce' | opMode == 'test') {
+      info(log,'cPLS operation complete')
+      break
+    }
     
     # Shutdown server after 1 execution
     if (shutdown) system(shutdownCmd)

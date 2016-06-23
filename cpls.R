@@ -182,7 +182,7 @@ while (1) {
         }
         info(log,paste("Previous note count:",length(prevIds)))
         break
-      }
+      } 
   
       # List detection
       list=FALSE

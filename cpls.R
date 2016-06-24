@@ -87,7 +87,7 @@ if (length(users)==0) {
 
 # Start continous loop to wait for scheduled execution
 info(log,'Software initialization complete.')
-if(opMode=='schedule') info(log,'Waiting for schedule start time ...')
+if(opMode=='schedule') info(log,'Waiting for scheduled start time ...')
 
 while (1) {
 
@@ -421,7 +421,6 @@ while (1) {
           load('data/resultOrder.rda')
           users[[i]]$resultOrder <- resultOrder
         } else {
-          stop('what the hell')
           users[[i]]$resultOrderJSON <- pForm(users[[i]]$urlOrders,users[[i]]$token,users[[i]]$orderJSON)
           if ( is.null(users[[i]]$resultOrderJSON) | length(users[[i]]$resultOrderJSON) == 0 ) {
             err(paste('User (',users[[i]]$name,') - Order Error (Empty API Response)',sep=""))
@@ -482,6 +481,8 @@ while (1) {
     
     # Shutdown server after 1 execution
     if (shutdown) system(shutdownCmd)
+    
+    if(opMode=='schedule') info(log,'Waiting for scheduled start time ...')
         
   } else {
     # Sleep between checking startTimes

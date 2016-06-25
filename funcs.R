@@ -52,9 +52,8 @@ gURL <- function(url,token) {
                            'Accept' = "application/json",
                            'Content-type' = "application/json")),
              error = function(e) {
-               warn(log,status)
+               warn(log,'')
             })
-  return(status)
 }
 
 # Function for postForm error handling
@@ -65,9 +64,8 @@ pForm <- function(url,token,orderJSON) {
                               'Accept' = "application/json",
                               'Content-type' = "application/json"))),
              error = function(e) {
-               warn(log,status)
+               warn(log,'Not able to submit order')
             })
-  return(status)
 }
 
 
@@ -98,6 +96,7 @@ urlLoanListAll = paste("https://api.lendingclub.com/api/investor/",
                     apiVersion, 
                     "/loans/listing?showAll=true",
                     sep='')
+
 
 # Curl options
 options(RCurlOptions = list(verbose = FALSE, 

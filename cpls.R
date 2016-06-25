@@ -64,7 +64,7 @@ info(log,paste('Operation Mode:',opMode))
 
 
 ###################
-# opMode <- 'runOnce'
+opMode <- 'runOnce'
 
 
 # Set config params
@@ -183,7 +183,10 @@ while (1) {
       } else {
         info(log,paste('Platform note count:',noteCount))
       }
+      # set some defaults for reporting to work (need to fix later)
       listTime=with_tz(now(),"America/Los_Angeles")
+      newNoteCount=0
+      apiTimeElapse=0
       break
     }
       
@@ -458,7 +461,14 @@ while (1) {
           load('data/resultOrder.rda')
           users[[i]]$resultOrder <- resultOrder
         } else {
-          users[[i]]$resultOrderJSON <- pForm(users[[i]]$urlOrders,users[[i]]$token,users[[i]]$orderJSON)
+          # Submit order to LC
+          users[[i]]$resultOrderJSON <- postForm(paste("https://api.lendingclub.com/api/investor/",apiVersion,"/accounts/",users[[i]]$accID,"/orders",sep=''),
+            .opts=list(postfields = users[[i]]$orderJSON,
+            httpheader = c('Authorization' = users[[i]]$token,
+            'Accept' = "application/json",
+            'Content-type' = "application/json")))
+          
+          
           if ( is.null(users[[i]]$resultOrderJSON) | length(users[[i]]$resultOrderJSON) == 0 ) {
             err(paste('User (',users[[i]]$name,') - Order Error (Empty API Response)',sep=""))
             err(paste('User (',users[[i]]$name,') - API Response: ', users[[i]]$resultOrderJSON,sep=''))

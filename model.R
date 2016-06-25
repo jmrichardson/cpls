@@ -1,20 +1,22 @@
+# 
 
 library(log4r)
-library(MASS)
-# library(plyr)
-library(dplyr)
-library(lubridate)
-require(compiler)
-library(zoo)
-library(ggplot2)
-library(rms)
-library(e1071)
-library(pROC)
-# library(caret)
-library(party)
-library(rpart)
-library(gbm)
-# library(InformationValue)
+library(parallel)
+# library(MASS)
+# # library(plyr)
+# library(dplyr)
+# library(lubridate)
+# require(compiler)
+# library(zoo)
+# library(ggplot2)
+# library(rms)
+# library(e1071)
+# library(pROC)
+# # library(caret)
+# library(party)
+# library(rpart)
+# library(gbm)
+# # library(InformationValue)
 
 
 # Enable parallel processing for caret to train GBM
@@ -50,15 +52,15 @@ setwd(dirname(csf()))
 
 
 # Load helper functions
-source('funcs.R')
+# source('funcs.R')
 
 # Initialize log
-logFile='store/system.log'
+logFile='store/model.log'
 log <- create.logger(level='INFO',logfile=logFile)
-info(log,'-----------------------------------------')
-info(log,'Starting GBM model build for Lending Club')
+info(log,'----------------------------')
+info(log,'Starting xgBoost model build')
 
-# Load all users from store sub-directory (must end with .acc extension)
+# Load a user to download LC statistics
 info(log,'Loading first user account')
 users <- list()
 files <- list.files(path="store", pattern="*.acc", full.names=T, recursive=FALSE)
@@ -72,6 +74,11 @@ for (file in files) {
 if (length(users)==0) {
   err('No user accounts configured')
 }
+
+getwd()
+print(users)
+
+stop()
 
 # Get historical LC data
 d <- gURL('https://resources.lendingclub.com/secure/LoanStats3a_securev1.csv.zip',users[[1]]$token)

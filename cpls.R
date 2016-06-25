@@ -12,12 +12,31 @@ library(ggplot2)
 library(xtable)
 library(gbm)
 
-# Set proper home directory
-if(file.exists('home.R')) {
-  source('home.R')
-} else { 
-  setwd('/home/user/cpls')
+# Function to set home directory
+csf <- function() {
+    cmdArgs = commandArgs(trailingOnly = FALSE)
+    needle = "--file="
+    match = grep(needle, cmdArgs)
+    if (length(match) > 0) {
+        # Rscript via command line
+        return(normalizePath(sub(needle, "", cmdArgs[match])))
+    } else {
+        ls_vars = ls(sys.frames()[[1]])
+        if ("fileName" %in% ls_vars) {
+            # Source'd via RStudio
+            return(normalizePath(sys.frames()[[1]]$fileName)) 
+        } else {
+            if (!is.null(sys.frames()[[1]]$ofile)) {
+            # Source'd via R console
+            return(normalizePath(sys.frames()[[1]]$ofile))
+            } else {
+                # RStudio Run Selection
+                return(normalizePath(rstudioapi::getActiveDocumentContext()$path))
+            }
+        }
+    }
 }
+setwd(dirname(csf()))
 
 # Load helper functions
 source('funcs.R')
@@ -45,7 +64,7 @@ info(log,paste('Operation Mode:',opMode))
 
 
 ###################
-# opMode <- 'runOnce'
+opMode <- 'runOnce'
 
 
 # Set config params
@@ -105,6 +124,7 @@ while (1) {
     
     # Obtain initial cash for each user
     for (i in 1:length(users)) {
+      cashFlag <- TRUE
       for (attempt in 1:5) {
         users[[i]]$pre$jsonCash <- gURL(paste("https://api.lendingclub.com/api/investor/",apiVersion,"/accounts/",users[[i]]$accID,"/availablecash",sep=''),users[[i]]$token)
         if ( is.null(users[[i]]$pre$jsonCash) | length(users[[i]]$pre$jsonCash) == 0 ) {
@@ -122,33 +142,50 @@ while (1) {
           warn(log,paste('User (',users[[i]]$name,') - API Response: ', users[[i]]$pre$jsonCash,sep=''))
           next
         }
+        cashFlag <- FALSE
         info(log,paste('User (',users[[i]]$name,') - Initial cash available: ',printCurrency(users[[i]]$pre$cash),sep=""))
         break
       }
+
+      # load portfolio allocation script
+      if (exists('gradeAllocation', where=users[[i]]) | exists('termAllocation', where=users[[i]]) ) {
+        phase <- 'pre'
+        source('portfolioAlloc.R')  
+      }
+      
     }
     
-
-    newJson <- gURL(urlLoanListAll,users[[i]]$token)
-    if ( is.null(newJson) | length(newJson) == 0 ) {
-      warn(log,paste("List detection (",cnt," of ",num,") - Null API Response ",sep=''))
+    # I
+    if (cashFlag) {
+      warn('Unable to get initial user cash')
       next
     }
-    if ( ! grepl("pubRec",newJson) ) {
-      warn(log,paste("List detection (",cnt," of ",num,") - Invalid API response",sep=''))
-      next
-    }
-    loans = fromJSON(newJson)$loans
-    if ( ! nrow(loans) ) {
-        warn(log,paste("List detection (",cnt," of ",num,") - API Conversion Error",sep=''))
+    
+    # Get current platform note count
+    for (attempt in 1:5) {
+      newJson <- gURL(urlLoanListAll,users[[i]]$token)
+      if ( is.null(newJson) | length(newJson) == 0 ) {
+        warn(log,paste("Note Count Attempt (",attempt," of 5) - Null API Response ",sep=''))
         next
-    }
-    listTime=with_tz(now(),"America/Los_Angeles")
-    noteCount <- dim(loans)[1]
-    if (!is.numeric(noteCount)) {
-      err(log,'Error getting platform note count')
+      }
+      if ( ! grepl("pubRec",newJson) ) {
+        warn(log,paste("List detection (",attempt," of 5) - Invalid API response",sep=''))
+        next
+      }
+      loans = fromJSON(newJson)$loans
+      if ( ! nrow(loans) ) {
+          warn(log,paste("List detection (",attempt," of 5) - API Conversion Error",sep=''))
+          next
+      }
+      noteCount <- dim(loans)[1]
+      if (!is.numeric(noteCount)) {
+        warn(log,'Error getting platform note count')
+      } else {
+        info(log,paste('Platform note count:',noteCount))
+      }
+      listTime=with_tz(now(),"America/Los_Angeles")
       break
     }
-    info(log,paste('Platform note count:',noteCount))
       
     # Start list detection only in schedule mode
     if ( opMode == 'schedule') {
@@ -311,7 +348,7 @@ while (1) {
         # If user specified grade or term allocation, get total notes in portfolio + filtered to do calcs
         if (exists('gradeAllocation', where=users[[i]]) | exists('termAllocation', where=users[[i]]) ) {
           if(is.null(users[[i]]$pre$portNoteCnt) | length(users[[i]]$pre$portNoteCnt) == 0 ) {
-            warn(log,paste('User (',users[[i]]$name,') - No initial portfolio information (stopping)',sep=""))
+            warn(log,paste('User (',users[[i]]$name,') - No portfolio information or 0 notes owned (stopping)',sep=""))
             break          
           }
           # Total number of notes in portfolio and new notes matching criteria
@@ -475,7 +512,7 @@ while (1) {
     source('report.R', local=TRUE)
     
     if (opMode == 'runOnce' | opMode == 'test') {
-      info(log,'cPLS operation complete')
+      info(log,'Operation complete')
       break
     }
     

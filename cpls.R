@@ -110,11 +110,20 @@ if (length(users)==0) {
   err('No user accounts configured')
 }
 
-# Start continous loop to wait for scheduled execution
 info(log,'Software load complete.')
-if(opMode=='schedule') info(log,'Waiting for scheduled start time ...')
 
+# Start continous loop
+loopCount <- 0
 while (1) {
+  
+  if (loopCount == 0) {
+    if(opMode=='schedule') {
+      for (time in startTimes) {
+        info(log,paste('Configured start time:',time,'PDT'))
+      }
+      info(log,'Waiting for next scheduled start time ...')
+    }
+  }
 
   # Get current California time and start at appropriate time
   nowPST <- with_tz(now(),"America/Los_Angeles")
@@ -535,11 +544,15 @@ while (1) {
     # Shutdown server after 1 execution
     if (shutdown) system(shutdownCmd)
     
-    if(opMode=='schedule') info(log,'Waiting for scheduled start time ...')
-        
+    # Reset loopCount
+    loopCount <- 0
+    
   } else {
     # Sleep between checking startTimes
     Sys.sleep(1)
+    
+    # Increment loopCount
+    loopCount <- loopCount+1
   }
   
  

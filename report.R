@@ -113,7 +113,7 @@ for (i in 1:length(users)) {
   # Send portfolio report email
   if (exists('receipt')) rm(receipt)
   
-  receipt <- send.mail(from = mailFrom,
+  receipt <- try(send.mail(from = mailFrom,
     to = users[[i]]$email,
     # cc = c('jmrpublic@gmail.com'),
     subject = "Lending Club Investment Report",
@@ -122,7 +122,7 @@ for (i in 1:length(users)) {
     inline = TRUE,
     smtp = list(host.name = host, port = port, user.name = userName, passwd = userPasswd, ssl = ssl),
     authenticate = TRUE,
-    send = TRUE)
+    send = TRUE))
 
   
   

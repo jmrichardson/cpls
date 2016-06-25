@@ -40,7 +40,7 @@ err <- function(str) {
 # Check for file existance
 reqFile <- function(file) {
   if (!file.exists(file)) {
-    err('Configuration file does not exist: store/config.R')
+    err(paste('Required file does not exist:',file))
   }
 }
 
@@ -53,18 +53,6 @@ gURL <- function(url,token) {
                            'Content-type' = "application/json")),
              error = function(e) {
                warn(log,'')
-            })
-}
-
-# Function for postForm error handling
-pForm <- function(url,token,orderJSON) {
-  status <- tryCatch(postFORM(url,
-                              .opts=list(postfields = orderJSON,
-                              httpheader = c('Authorization' = token,
-                              'Accept' = "application/json",
-                              'Content-type' = "application/json"))),
-             error = function(e) {
-               warn(log,'Not able to submit order')
             })
 }
 
@@ -105,6 +93,28 @@ options(RCurlOptions = list(verbose = FALSE,
                             ssl.verifypeer = FALSE,
                             useragent = "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/30.0.1599.101 Safari/537.36")
 )
+
+# Check config.R
+checkConfig <- function() {
+  parms <- c('startTimes','maxNoteCount','numNotesThresh','mailFrom','host',
+    'port','userName','userPasswd','ssl','shutdown','shutdownCmd')
+  for (parm in parms) {
+    if(!exists(parm)){
+      err(paste("Config.R parameter does not exist:",parm))
+    }
+  }
+}
+
+# Check user account
+checkUser <- function(file,lc) {
+  parms <- c('name','email','accID','token','maxNotesPerOrder','minCash','portfolioId','amountPerNote',
+    'sortField','reportCriteria','filterCriteria')
+  for (parm in parms) {
+    if(!exists(parm,where=lc)){
+      err(paste("User parameter in",file,"does not exist:",parm))
+    }
+  }
+}
 
 
 

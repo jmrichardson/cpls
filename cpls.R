@@ -12,7 +12,11 @@ library(ggplot2)
 library(xtable)
 library(gbm)
 
+# Do not show try error messages
+options(show.error.messages = FALSE)
+
 # Function to set home directory
+defaultDir = '/home/user/cpls'
 csf <- function() {
     cmdArgs = commandArgs(trailingOnly = FALSE)
     needle = "--file="
@@ -36,7 +40,23 @@ csf <- function() {
         }
     }
 }
-setwd(dirname(csf()))
+dir <- tryCatch(dirname(csf()),
+  error = function(e) {
+    defaultDir
+  }
+)
+if (is.null(dir) | length(dir) == 0) {
+  dir <- defaultDir
+}
+if(!dir.exists(dir)) {
+  err('Unable to determine home directory')
+} else {
+  setwd(dir)
+}
+
+##########################
+# opMode <- 'runOnce'
+###########################
 
 # Load helper functions
 source('funcs.R')
@@ -46,7 +66,6 @@ logFile='store/system.log'
 log <- create.logger(level='INFO',logfile=logFile)
 info(log,'-------------------------------------')
 info(log,'Starting Command Line PLS Version 1.0')
-
 
 # Set program operation mode (schedule, runOnce, test)
 opMode <- 'schedule'
@@ -61,33 +80,20 @@ if(!is.na(args[1])) {
 }
 info(log,paste('Operation Mode:',opMode))
 
-
-
-###################
-# opMode <- 'runOnce'
-
-
-# Set config params
-model <- 'data/fitGbm.rda'
-config <- 'store/config.R'
-
-
 # Create directories if they don't exist
 dir.create('store', showWarnings = FALSE)
 dir.create('tmp', showWarnings = FALSE)
 
-
 # Load pre-built GBM model
-reqFile(model)
 info(log,'Loading machine learning model')
-load(model)
-
+load('data/fitGbm.rda')
 
 # Load cpls configuration
+config <- 'store/config.R'
 reqFile(config)
 info(log,'Importing configuration')
 source(config)
-
+checkConfig()
 
 # Load all users from store sub-directory (must end with .acc extension)
 info(log,'Loading user accounts')
@@ -96,6 +102,7 @@ files <- list.files(path="store", pattern="*.acc", full.names=T, recursive=FALSE
 for (file in files) {
   lc=list()
   source(file)
+  checkUser(file,lc)
   users <- append(users,list(lc))
   info(log,paste("Importing user: ",lc$name,sep=''))
 }
@@ -103,9 +110,8 @@ if (length(users)==0) {
   err('No user accounts configured')
 }
 
-
 # Start continous loop to wait for scheduled execution
-info(log,'Software initialization complete.')
+info(log,'Software load complete.')
 if(opMode=='schedule') info(log,'Waiting for scheduled start time ...')
 
 while (1) {

@@ -64,7 +64,7 @@ info(log,paste('Operation Mode:',opMode))
 
 
 ###################
-opMode <- 'runOnce'
+# opMode <- 'runOnce'
 
 
 # Set config params

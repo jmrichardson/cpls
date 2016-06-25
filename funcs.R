@@ -58,7 +58,7 @@ gURL <- function(url,token) {
 }
 
 # Function for postForm error handling
-pFORM <- function(url,token,orderJSON) {
+pForm <- function(url,token,orderJSON) {
   status <- tryCatch(postFORM(url,
                               .opts=list(postfields = orderJSON,
                               httpheader = c('Authorization' = token,

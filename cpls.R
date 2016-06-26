@@ -12,9 +12,6 @@ library(ggplot2)
 library(xtable)
 library(gbm)
 
-# Do not show try error messages
-options(show.error.messages = FALSE)
-
 # Function to set home directory
 defaultDir = '/home/user/cpls'
 csf <- function() {
@@ -170,7 +167,7 @@ while (1) {
       
     }
     
-    # I
+    # Error checking
     if (cashFlag) {
       warn('Unable to get initial user cash')
       next

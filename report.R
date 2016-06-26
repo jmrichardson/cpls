@@ -113,24 +113,22 @@ for (i in 1:length(users)) {
   # Send portfolio report email
   if (exists('receipt')) rm(receipt)
   
-  receipt <- try(send.mail(from = mailFrom,
-    to = users[[i]]$email,
-    # cc = c('jmrpublic@gmail.com'),
-    subject = "Lending Club Investment Report",
-    body = users[[i]]$html,
-    html = TRUE,
-    inline = TRUE,
-    smtp = list(host.name = host, port = port, user.name = userName, passwd = userPasswd, ssl = ssl),
-    authenticate = TRUE,
-    send = TRUE))
+  tryCatch({
+    receipt <- send.mail(from = mailFrom,
+      to = users[[i]]$email,
+      # cc = c('jmrpublic@gmail.com'),
+      subject = "Lending Club Investment Report",
+      body = "<h1>hi ther</h1>",
+      html = TRUE,
+      inline = TRUE,
+      smtp = list(host.name = host, port = port, user.name = userName, passwd = userPasswd, ssl = ssl),
+      authenticate = TRUE,
+      send = TRUE)
+    info(log,paste('User (',users[[i]]$name,') - Email report sent',sep=""))},
+    error = function(e) {
+      warn(log,paste('User (',users[[i]]$name,') - Email report delivery unsuccessful',sep=""))}
+  )
 
-  
-  
-  if (exists('receipt')) {
-    info(log,paste('User (',users[[i]]$name,') - Email report sent',sep=""))
-  } else {
-    warn(log,paste('User (',users[[i]]$name,') - Email not sent',sep=""))
-  }
   
 }
 

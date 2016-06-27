@@ -282,6 +282,11 @@ while (1) {
       }
     }
 
+    # Load old batch of notes for test purposes only (ensures that my filter selects some notes on this batch)
+    if (opMode == 'test') {
+      loans <- read.csv('data/loans.csv')
+    }
+    
     info(log,'Modeling available notes')
     
     # Record start of modeling time

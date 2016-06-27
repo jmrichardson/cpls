@@ -118,7 +118,7 @@ for (i in 1:length(users)) {
       to = users[[i]]$email,
       # cc = c('jmrpublic@gmail.com'),
       subject = "Lending Club Investment Report",
-      body = "<h1>hi ther</h1>",
+      body = users[[i]]$html,
       html = TRUE,
       inline = TRUE,
       smtp = list(host.name = host, port = port, user.name = userName, passwd = userPasswd, ssl = ssl),

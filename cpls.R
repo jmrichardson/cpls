@@ -51,9 +51,6 @@ if(!dir.exists(dir)) {
   setwd(dir)
 }
 
-##########################
-# opMode <- 'runOnce'
-###########################
 
 # Load helper functions
 source('funcs.R')
@@ -76,6 +73,11 @@ if(!is.na(args[1])) {
   }
 }
 info(log,paste('Operation Mode:',opMode))
+
+
+##########################
+# opMode <- 'runOnce'
+###########################
 
 # Create directories if they don't exist
 dir.create('store', showWarnings = FALSE)
@@ -526,6 +528,9 @@ while (1) {
     # Read 
     lastLog <- readLines(con)
     close(con)
+    
+    # Save the loans for testing purposes
+    write.csv(loans,row.names=FALSE,na='',file=paste('store/',gsub(':','-',listTime),' loans.csv',sep=''))
     
     # Analyze portfolio for all users
     source('portfolio.R', local=TRUE)

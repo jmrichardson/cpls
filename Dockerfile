@@ -12,7 +12,7 @@ RUN gpg --keyserver keyserver.ubuntu.com --recv-key E084DAB9
 RUN gpg -a --export E084DAB9 | sudo apt-key add -
 
 # Update and install ubunutu packages
-RUN apt-get update && apt-get -y upgrade && apt-get -y install r-base default-jre git wget curl unzip ntp sudo \
+RUN apt-get update && apt-get -y upgrade && apt-get -y install r-base default-jre default-jdk git wget curl unzip ntp sudo \
 openssl libssl-dev libcurl4-openssl-dev
 # libcurl4-gnutls-dev
 
@@ -33,7 +33,7 @@ WORKDIR $HOME
 USER user
 
 # Clone GitHub cpls repository
-RUN git clone https://github.com/jmrichardson/cpls && echo 22
+RUN git clone https://github.com/jmrichardson/cpls && echo 24
 
 # Run on start
 CMD /usr/bin/Rscript --vanilla /home/user/cpls/cpls.R >> /home/user/cpls/store/console.log 2>&1

@@ -11,6 +11,7 @@ library(base64)
 library(ggplot2)
 library(xtable)
 library(gbm)
+library(tools)
 
 # Function to set home directory
 defaultDir = '/home/user/cpls'
@@ -83,33 +84,10 @@ info(log,paste('Operation Mode:',opMode))
 dir.create('store', showWarnings = FALSE)
 dir.create('tmp', showWarnings = FALSE)
 
-# Load pre-built GBM model
-info(log,'Loading machine learning model')
-load('data/fitGbm.rda')
+# Software load process
+info(log,'Loading software configuration')
+source('load.R')
 
-# Load cpls configuration
-config <- 'store/config.R'
-reqFile(config)
-info(log,'Importing configuration')
-source(config)
-checkConfig()
-
-# Load all users from store sub-directory (must end with .acc extension)
-info(log,'Loading user accounts')
-users <- list()
-files <- list.files(path="store", pattern="*.acc", full.names=T, recursive=FALSE)
-for (file in files) {
-  lc=list()
-  source(file)
-  checkUser(file,lc)
-  users <- append(users,list(lc))
-  info(log,paste("Importing user: ",lc$name,sep=''))
-}
-if (length(users)==0) {
-  err('No user accounts configured')
-}
-
-info(log,'Software load complete.')
 
 # Start continous loop
 loopCount <- 0
@@ -284,7 +262,7 @@ while (1) {
 
     # Load old batch of notes for test purposes only (ensures that my filter selects some notes on this batch)
     if (opMode == 'test') {
-      loans <- read.csv('data/loans.csv')
+      loans <- read.csv('data/loans_sample.csv')
     }
     
     info(log,'Modeling available notes')
@@ -530,18 +508,20 @@ while (1) {
       }
     },mc.cores=cores)
     
+    # Analyze portfolio for all users
+    source('portfolio.R', local=TRUE)
+
     # Read 
     lastLog <- readLines(con)
     close(con)
     
+    # Create report per user
+    source('report.R', local=TRUE)
+    
     # Save the loans for testing purposes
     write.csv(loans,row.names=FALSE,na='',file=paste('store/',gsub(':','-',listTime),' loans.csv',sep=''))
     
-    # Analyze portfolio for all users
-    source('portfolio.R', local=TRUE)
 
-    # Create report per user
-    source('report.R', local=TRUE)
     
     if (opMode == 'runOnce' | opMode == 'test') {
       info(log,'Operation complete')
@@ -556,7 +536,14 @@ while (1) {
     
   } else {
     # Sleep between checking startTimes
-    Sys.sleep(1)
+    Sys.sleep(5)
+    
+    # Load configuration if checksums are different or new number of accounts
+    if (all(md5sum(sort(c(files,config)))!=checkSums) | length(files) != length(list.files(path="store", pattern="*.acc", full.names=T, recursive=FALSE))) {
+      info(log,'Configuration change detected.  Reloading ...')
+      source('load.R')
+    }
+
     
     # Increment loopCount
     loopCount <- loopCount+1

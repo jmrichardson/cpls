@@ -1,10 +1,10 @@
 # This is a script file because it is used twice (pre and post)
 
-if (phase == 'pre') {
-  info(log,paste('User (',users[[i]]$name,') - Obtaining current portfolio allocation',sep=""))
-} else {
-  info(log,paste('User (',users[[i]]$name,') - Obtaining post order portfolio information',sep=""))
-}
+# if (phase == 'pre') {
+#   info(log,paste('User (',users[[i]]$name,') - Obtaining current portfolio allocation',sep=""))
+# } else {
+#   info(log,paste('User (',users[[i]]$name,') - Obtaining post order portfolio information',sep=""))
+# }
 
 # Obtain current portfolio grade frequency and total note count
 users[[i]]$attemptNotesOwned <- 1
@@ -47,7 +47,7 @@ while(users[[i]]$attemptNotesOwned < 5) {
     users[[i]][[phase]]$portTermStats <- cbind(users[[i]][[phase]]$portTermFreq,users[[i]][[phase]]$portTermPerc)
     users[[i]][[phase]]$portNoteCnt <- dim(users[[i]][[phase]]$notesOwned)[1]
     names(users[[i]][[phase]]$portTermStats) <- c("Term","Frequency","Percent")
-    info(log,paste('User (',users[[i]]$name,') - Notes owned: ',nrow(users[[i]][[phase]]$notesOwned),sep="")) 
+    info(log,paste('User (',users[[i]]$name,') - Total notes owned: ',nrow(users[[i]][[phase]]$notesOwned),sep="")) 
     users[[i]][[phase]]$notesOwned <- NULL
     break
   }

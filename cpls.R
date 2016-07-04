@@ -77,8 +77,8 @@ info(log,paste('Operation Mode:',opMode))
 
 
 ##########################
-# opMode <- 'runOnce'
-###########################
+# opMode <- 'test'
+##########################
 
 # Create directories if they don't exist
 dir.create('store', showWarnings = FALSE)
@@ -102,12 +102,8 @@ while (1) {
     }
   }
 
-  # Get current California time and start at appropriate time
-  nowPST <- with_tz(now(),"America/Los_Angeles")
-  hmPST <- paste(hour(nowPST),minute(nowPST),sep=":")
-
-  # Start system only at given start times
-  if ((hmPST %in% startTimes& opMode=='schedule') | opMode == 'runOnce' | opMode == 'test') {
+  # Start system only at given start times (1 minute prior)
+  if ((hmMin() %in% startTimes & opMode=='schedule') | opMode == 'runOnce' | opMode == 'test') {
         
     # Read log file (connection)
     closeAllConnections()
@@ -184,7 +180,21 @@ while (1) {
       
     # Start list detection only in schedule mode
     if ( opMode == 'schedule') {
-    
+      
+      
+      
+      # Wait until 5 seconds before list to begin polling LC API
+      # Check to make sure we are starting before scheduled start time (should never happen but checking anyways)
+      if (!hmMin() %in% startTimes ) { 
+        warn(log,'List detection cannot start after scheduled start time')
+        next
+      }
+      # Sleep until just prior to start time
+      if (second(nowPST())<55) info(log,'Waiting for list detection ...')
+      while(second(nowPST())<55) {
+        Sys.sleep(1)
+      }
+      
       info(log,"Starting loan list detection")
       
       # Obtain starting note count
@@ -305,6 +315,9 @@ while (1) {
       
       # Simple loop to stop execution on error
       for(one in 1) {
+        
+        # Set order sent flag
+        users[[i]]$orderSent <<- 'no'
         
         # Record start time of filter process
         users[[i]]$startFilterTime <- proc.time()
@@ -480,7 +493,7 @@ while (1) {
         }
 
         # Set variable that order was sent to LC
-        users[[i]]$orderSent <<- 'true'
+        users[[i]]$orderSent <<- 'yes'
         
         users[[i]]$resultOrder$numOrderedNotes <- nrow(subset(users[[i]]$resultOrder$orderConfirmation, investedAmount>0))
         users[[i]]$resultOrder$investedAmount <- sum(users[[i]]$resultOrder$orderConfirmation$investedAmount)
@@ -515,6 +528,7 @@ while (1) {
     lastLog <- readLines(con)
     close(con)
     
+
     # Create report per user
     source('report.R', local=TRUE)
     
@@ -528,7 +542,7 @@ while (1) {
       break
     }
     
-    # Shutdown server after 1 execution
+    # Shutdown server after 1 execution (Experimental)
     if (shutdown) system(shutdownCmd)
     
     # Reset loopCount

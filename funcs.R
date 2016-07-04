@@ -116,5 +116,15 @@ checkUser <- function(file,lc) {
   }
 }
 
+# Get California time
+nowPST <- function() {
+  with_tz(now(),"America/Los_Angeles")
+}
+
+# Get hour and minute of California time plus 1 minute
+hmMin <- function() {
+  nowMin <- nowPST()+minutes(1)
+  paste(str_pad(hour(nowMin),2,pad="0"),str_pad(minute(nowMin),2,pad="0"),sep=":")
+}
 
 

@@ -5,7 +5,7 @@
 for (i in 1:length(users)) {
 
   # Skip users where order was not sent (no need to run portfolio analysis)
-  if (is.null(users[[i]]$orderSent)) next
+  if (users[[i]]$orderSent == 'no' ) next
   
 
   # Obtain avaiable cash

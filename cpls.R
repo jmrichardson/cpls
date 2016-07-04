@@ -447,6 +447,7 @@ while (1) {
 
         
         # Create order JSON based on filtered Ids
+        users[[i]]$order <- list()
         users[[i]]$order$aid <- users[[i]]$accID
         if (users[[i]]$portfolioId) {
           users[[i]]$order$orders <- data.frame(users[[i]]$filteredIds,
@@ -460,10 +461,9 @@ while (1) {
         }
         users[[i]]$orderJSON <- toJSON(users[[i]]$order,auto_unbox=TRUE)
 
-        
         # Time markers
         users[[i]]$endFilterTime <- proc.time()
-        users[[i]]$elapsedProcTime <- round((users[[i]]$endFilterTime - startTime + elapsedModelTime)[3],2)
+        users[[i]]$elapsedProcTime <<- round((users[[i]]$endFilterTime - startTime + elapsedModelTime)[3],2)
         users[[i]]$startOrderTime <- proc.time()
 
         # Order notes

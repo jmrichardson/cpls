@@ -1,11 +1,22 @@
-# 
 
-library(log4r)
+# This model depends upon the following external data (Be sure to get latest available):
+# Lending club statistics:  lendingclub.com
+# Zip code statistics: https://www.irs.gov/uac/soi-tax-stats-individual-income-tax-statistics-zip-code-data-soi
+# St Louis Fred:  https://fred.stlouisfed.org/
+# * Change in labor market conditinos
+# * Consumer price index for all urban consumers
+# * Effective federal funds rate
+# * Leading index for the united states
+# * Smoothed US Recession probabilities
+# * S&P 500
+# * St Louis Fed Financial Stress Index
+
+
 library(parallel)
 # library(MASS)
-# # library(plyr)
-# library(dplyr)
-# library(lubridate)
+library(plyr)
+library(dplyr)
+library(lubridate)
 # require(compiler)
 # library(zoo)
 # library(ggplot2)
@@ -54,55 +65,33 @@ setwd(dirname(csf()))
 # Load helper functions
 # source('funcs.R')
 
-# Initialize log
-logFile='store/model.log'
-log <- create.logger(level='INFO',logfile=logFile)
-info(log,'----------------------------')
-info(log,'Starting xgBoost model build')
 
-# Load a user to download LC statistics
-info(log,'Loading first user account')
-users <- list()
-files <- list.files(path="store", pattern="*.acc", full.names=T, recursive=FALSE)
-for (file in files) {
-  lc=list()
-  source(file)
-  users <- append(users,list(lc))
-  info(log,paste("Importing user: ",lc$name,sep=''))
-  break
-}
-if (length(users)==0) {
-  err('No user accounts configured')
-}
-
-getwd()
-print(users)
-
-stop()
-
-# Get historical LC data
-d <- gURL('https://resources.lendingclub.com/secure/LoanStats3a_securev1.csv.zip',users[[1]]$token)
-
-stop()
 # Set seed for model comparison if needed
 set.seed(1)
 
-# Load zip code data
-load('data/zipCodes.rda')
 
+dataDir <- 'C:/temp'
 
+# Read in Lending Club statistics
+data1=read.csv(paste(dataDir,'LoanStats3a_securev1.csv',sep='/'),header=TRUE,skip=1)
+data2=read.csv(paste(dataDir,'LoanStats3b_securev1.csv',sep='/'),header=TRUE,skip=1)
+data3=read.csv(paste(dataDir,'LoanStats3c_securev1.csv',sep='/'),header=TRUE,skip=1)
+data4=read.csv(paste(dataDir,'LoanStats3d_securev1.csv',sep='/'),header=TRUE,skip=1)
+data5=read.csv(paste(dataDir,'LoanStats_securev1_2016Q1.csv',sep='/'),header=TRUE,skip=1)
 
-stop()
-
-data1=read.csv("data/LoanStats3a_securev1.csv",header=TRUE,skip=1)
-data2=read.csv("data/LoanStats3b_securev1.csv",header=TRUE,skip=1)
-data3=read.csv("data/LoanStats3c_securev1.csv",header=TRUE,skip=1)
-data4=read.csv("data/LoanStats3d_securev1.csv",header=TRUE,skip=1)
+# Update field name
 names(data1)[names(data1)=="is_inc_v"] <- "verification_status"
 names(data2)[names(data2)=="is_inc_v"] <- "verification_status"
+
+# Remove fields that aren't present in historical data
 data3[,57:200] <- list(NULL)
 data4[,57:200] <- list(NULL)
-data=rbind(data1,data2,data3,data4)
+data5[,57:200] <- list(NULL)
+
+# Combine historical notes
+data=rbind(data1,data2,data3,data4,data5)
+
+# Remove notes withouth loan amount
 data <- data[!is.na(data$loan_amnt),]
 
 
@@ -133,11 +122,10 @@ names(data)[names(data)=="verification_status"] <- "isIncV"
 names(data)[names(data)=="initial_list_status"] <- "initialListStatus"
 names(data)[names(data)=="collections_12_mths_ex_med"] <- "collections12MthsExMed"
 
-
+# Data cleansing
 data$empLength=as.integer(as.character(revalue(data$empLength,c("< 1 year"="0", "1 year"="12", "10+ years"="120", 
   "2 years"="24", "3 years"="36", "4 years"="48", "5 years"="60", "6 years"="72", 
   "7 years"="84", "8 years"="96", "9 years"="108"))))
-
 data$term <-as.integer(as.character(gsub(" months", "", data$term)))
 data$intRate <-as.numeric(as.character(gsub("%", "", data$intRate)))
 data$revolUtil <-as.numeric(as.character(gsub("%", "", data$revolUtil)))
@@ -151,8 +139,6 @@ dateConv <- function(x, year=1925){
   year(x) <- ifelse(m > year %% 100, 1900+m, 2000+m)
   x
 }
-dateConv <- cmpfun(dateConv)
-
 data$earliestCrLine<-dateConv(dmy(paste("01", data$earliestCrLine, sep = "-")))
 
 data$issue_d<-dateConv(dmy(paste("01", data$issue_d, sep = "-")))
@@ -166,14 +152,23 @@ data$installmentIncomeRatio=round(data$installment/(data$annualInc/12)*100)
 data$revolBalAnnualIncRatio=round(data$revolBal/data$annualInc*100)
 
 data$dtiInstallmentRatio=round(data$dti/data$installment,2)
-# data$ficoInstallmentRatio=round(data$installment/data$ficoRangeLow,4)
 
 # Set complete status
 data$completeDate <- data$issue_d %m+% months(data$term)
-data$complete <- ifelse(data$completeDate <= lastDate,TRUE,FALSE)
+data$complete <- ifelse(data$completeDate <= date(now()-months(2)),TRUE,FALSE)
 data$term <- as.factor(data$term)
 
-data$isDef = ifelse(data$loan_status=='Charged_Off' | data$loan_status=='Default',1,0)
+### Add in zip code data
+
+zip <- read.csv(paste(dataDir,'zip_codes.csv',sep='/'))
+zip <- zip[,c('STATE','zipcode','N1','A00100')]
+
+
+
+
+
+
+
 
 data = merge(x=data,y=zipCodes,by="addrZip",all.x=TRUE)
 data$avgWageIncRatio = data$avgWage / data$annualInc

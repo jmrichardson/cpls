@@ -545,8 +545,9 @@ while (1) {
     # Shutdown server after 1 execution (Experimental)
     if (shutdown) system(shutdownCmd)
     
-    # Reset loopCount
-    loopCount <- 0
+    if(opMode=='schedule') {
+      info(log,'Waiting for next scheduled start time ...')
+    }
     
   } else {
     # Sleep between checking startTimes

@@ -533,7 +533,7 @@ while (1) {
     source('report.R', local=TRUE)
     
     # Save the loans for testing purposes
-    write.csv(loans,row.names=FALSE,na='',file=paste('store/',gsub(':','-',listTime),' loans.csv',sep=''))
+    # write.csv(loans,row.names=FALSE,na='',file=paste('store/',gsub(':','-',listTime),' loans.csv',sep=''))
     
 
     

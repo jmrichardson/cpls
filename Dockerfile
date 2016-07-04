@@ -33,7 +33,7 @@ WORKDIR $HOME
 USER user
 
 # Clone GitHub cpls repository
-RUN git clone https://github.com/jmrichardson/cpls && echo 25
+RUN git clone https://github.com/jmrichardson/cpls && echo 26
 
 # Run on start
 CMD /usr/bin/Rscript --vanilla /home/user/cpls/cpls.R >> /home/user/cpls/store/console.log 2>&1

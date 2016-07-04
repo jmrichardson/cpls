@@ -119,6 +119,7 @@ checkUser <- function(file,lc) {
 # Get California time
 nowPST <- function() {
   with_tz(now(),"America/Los_Angeles")
+  # parse_date_time('2016-07-04 09:59:00 PDT','Y-m-d H:M:S', tz='America/Los_Angeles')
 }
 
 # Get hour and minute of California time plus 1 minute

@@ -18,6 +18,10 @@ library(plyr)
 library(dplyr)
 library(lubridate)
 library('stringr')
+# library('Matrix')
+# library('MatrixModels')
+library('caret')
+library('xgboost')
 # require(compiler)
 # library(zoo)
 # library(ggplot2)
@@ -62,6 +66,13 @@ csf <- function() {
 }
 setwd(dirname(csf()))
 
+# LC date conversion function
+dateConv <- function(x, year=1925){
+  m <- year(x) %% 100
+  year(x) <- ifelse(m > year %% 100, 1900+m, 2000+m)
+  x
+}
+
 
 # Load helper functions
 # source('funcs.R')
@@ -95,6 +106,12 @@ data=rbind(data1,data2,data3,data4,data5)
 # Remove notes withouth loan amount
 data <- data[!is.na(data$loan_amnt),]
 
+# Model only complete loans (notes that have had time to mature)
+data$issue_d<-dateConv(dmy(paste("01", data$issue_d, sep = "-")))
+data$term <-as.integer(as.character(gsub(" months", "", data$term)))
+data$completeDate <- data$issue_d %m+% months(data$term)
+data$complete <- ifelse(data$completeDate <= date(now()-months(1)),TRUE,FALSE)
+data <- data[data$complete==TRUE,]
 
 # Rename columns to match API
 names(data)[names(data)=="loan_amnt"] <- "loanAmount"
@@ -123,11 +140,11 @@ names(data)[names(data)=="verification_status"] <- "isIncV"
 names(data)[names(data)=="initial_list_status"] <- "initialListStatus"
 names(data)[names(data)=="collections_12_mths_ex_med"] <- "collections12MthsExMed"
 
-# Data cleansing
+# Data cleansing  and feature engineering
 data$empLength=as.integer(as.character(revalue(data$empLength,c("< 1 year"="0", "1 year"="12", "10+ years"="120", 
   "2 years"="24", "3 years"="36", "4 years"="48", "5 years"="60", "6 years"="72", 
   "7 years"="84", "8 years"="96", "9 years"="108"))))
-data$term <-as.integer(as.character(gsub(" months", "", data$term)))
+
 data$intRate <-as.numeric(as.character(gsub("%", "", data$intRate)))
 data$revolUtil <-as.numeric(as.character(gsub("%", "", data$revolUtil)))
 data$loan_status=as.factor(gsub(" ", '_', data$loan_status))
@@ -135,14 +152,10 @@ data$isIncV=as.factor(toupper(gsub(" ", '_', data$isIncV)))
 data$annualInc=round(data$annualInc)
 data$initialListStatus=as.factor(toupper(data$initialListStatus))
 
-dateConv <- function(x, year=1925){
-  m <- year(x) %% 100
-  year(x) <- ifelse(m > year %% 100, 1900+m, 2000+m)
-  x
-}
+
 data$earliestCrLine<-dateConv(dmy(paste("01", data$earliestCrLine, sep = "-")))
 
-data$issue_d<-dateConv(dmy(paste("01", data$issue_d, sep = "-")))
+
 data$last_pymnt_d<-dateConv(dmy(paste("01", data$last_pymnt_d, sep = "-")))
 data$revolBal <- as.numeric(data$revolBal)
 
@@ -154,10 +167,10 @@ data$revolBalAnnualIncRatio=round(data$revolBal/data$annualInc*100)
 
 data$dtiInstallmentRatio=round(data$dti/data$installment,2)
 
-# Set complete status
-data$completeDate <- data$issue_d %m+% months(data$term)
-data$complete <- ifelse(data$completeDate <= date(now()-months(2)),TRUE,FALSE)
+data$amountTerm <- data$loanAmount/data$term
 data$term <- as.factor(data$term)
+
+
 
 ### Add in zip code data
 zip <- read.csv(paste(dataDir,'zip_codes.csv',sep='/'))
@@ -201,6 +214,83 @@ df <- read.csv(paste(dataDir,'PLS_Monthly.txt',sep='/'),sep='\t')
 df$issue_d = as.Date(strftime(df$DATE, "%Y-%m-01"))
 df$DATE <- NULL
 data <- merge(x=data,y=df,by="issue_d",all.x=TRUE)
+
+# Add regression target
+data$percPaid <- data$total_rec_prncp/data$loanAmount
+# Shouldn't happen, but just in case
+data$percPaid[data$percPaid < 0] <- 0
+data$percPaid[data$percPaid > 1] <- 1
+
+
+# Remove unnecessary fields
+data$id <- NULL
+data$member_id <- NULL
+data$funded_amnt <- NULL
+data$funded_amnt_inv <- NULL
+data$empTitle <- NULL
+data$issue_d <- NULL
+data$url <- NULL
+data$desc <- NULL
+data$out_prncp <- NULL
+data$out_prncp_inv <- NULL
+data$total_pymnt <- NULL
+data$total_pymnt_inv <- NULL
+data$total_rec_prncp <- NULL
+data$total_rec_int <- NULL
+data$total_rec_late_fee <- NULL
+data$recoveries <- NULL
+data$collection_recovery_fee <- NULL
+data$data$last_pymnt_d <- NULL
+data$last_pymnt_amnt <- NULL
+data$next_pymnt_d <- NULL
+data$next_pymnt_d <- NULL
+data$last_credit_pull_d <- NULL
+data$last_fico_range_high <- NULL
+data$last_fico_range_low <- NULL
+data$policy_code <- NULL
+data$completeDate <- NULL
+data$remPrncp <- NULL
+data$total_int <- NULL
+data$fees <- NULL
+data$prnPaid <- NULL
+data$loss <- NULL
+data$title <- NULL
+data$ficoRangeHigh <- NULL
+data$pymnt_plan <- NULL
+data$last_pymnt_d <- NULL
+data$earliestCrLine <- NULL
+data$addrZip <- NULL  # Too many factors/codes
+
+# Remove LC influenced fields 
+data$intRate <- NULL    
+data$grade <- NULL
+data$subGrade <- NULL
+data$installment <- NULL
+data$complete <- NULL
+data$loan_status <- NULL
+
+save(data,file='C:/temp/data.rda')
+
+
+############################## Modeling phase ###############################
+
+
+# Convert to numeric (xgboost requires numeric)
+dmy <- dummyVars(" ~ .", data = data)
+data <- data.frame(predict(dmy, newdata = data))
+
+# Create data train and data partition
+inTrain <- createDataPartition(data$percPaid,p=0.75, list=FALSE)
+train <- data[inTrain,]
+test <- data[-inTrain,]
+
+# Create outcome vector
+trainLabel <- train$percPaid
+train$percPaid <- NULL
+
+
+bst <- xgboost(data = data.matrix(train), label = trainLabel, max_depth = 4, missing = NaN,
+               eta = 1, nthread = 4, nrounds = 100,objective = "reg:linear")
 
 
 

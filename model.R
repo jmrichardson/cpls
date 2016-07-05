@@ -17,6 +17,7 @@ library(parallel)
 library(plyr)
 library(dplyr)
 library(lubridate)
+library('stringr')
 # require(compiler)
 # library(zoo)
 # library(ggplot2)
@@ -159,30 +160,51 @@ data$complete <- ifelse(data$completeDate <= date(now()-months(2)),TRUE,FALSE)
 data$term <- as.factor(data$term)
 
 ### Add in zip code data
-
 zip <- read.csv(paste(dataDir,'zip_codes.csv',sep='/'))
-zip <- zip[,c('STATE','zipcode','N1','A00100')]
+zip <- zip[,c('Zipcode','EstimatedPopulation','TotalWages','TaxReturnsFiled')]
+zip <- na.omit(zip)
+zip$Zipcode <- str_pad(zip$Zipcode, 5, pad = "0", side="left")
+zip$addrZip <- substr(zip$Zipcode,1,3)
+zip$addrZip <- as.factor(str_pad(zip$addrZip, 5, pad = "x", side="right"))
+zip <- zip %>% 
+  group_by(addrZip) %>%
+  summarise(
+    population=sum(as.numeric(EstimatedPopulation)),
+    Wages=sum(as.numeric(TotalWages)),
+    Returns=sum(as.numeric(TaxReturnsFiled)),
+    avgWage=round(Wages/Returns)
+  ) %>% 
+  select (addrZip,population,avgWage)
+data <- merge(x=data,y=zip,by="addrZip",all.x=TRUE)
+
+
+### Add in FRED data
+df <- read.csv(paste(dataDir,'PLS_Daily.txt',sep='/'),sep='\t')
+df$SP500 <- as.numeric(as.character(df$SP500))
+issue_d = as.Date(strftime(df$DATE, "%Y-%m-01"))
+SP500 = aggregate(SP500 ~ issue_d, FUN = mean, data=df)
+data <- merge(x=data,y=SP500,by="issue_d",all.x=TRUE)
+
+df <- read.csv(paste(dataDir,'PLS_Weekly_Ending_Friday.txt',sep='/'),sep='\t')
+df$STLFSI <- as.numeric(as.character(df$STLFSI))
+issue_d = as.Date(strftime(df$DATE, "%Y-%m-01"))
+STLFSI = aggregate(STLFSI ~ issue_d, FUN = mean, data=df)
+data <- merge(x=data,y=STLFSI,by="issue_d",all.x=TRUE)
+
+df <- read.csv(paste(dataDir,'PLS_Weekly_Ending_Wednesday.txt',sep='/'),sep='\t')
+df$FF <- as.numeric(as.character(df$FF))
+issue_d = as.Date(strftime(df$DATE, "%Y-%m-01"))
+FF = aggregate(FF ~ issue_d, FUN = mean, data=df)
+data <- merge(x=data,y=FF,by="issue_d",all.x=TRUE)
+
+df <- read.csv(paste(dataDir,'PLS_Monthly.txt',sep='/'),sep='\t')
+df$issue_d = as.Date(strftime(df$DATE, "%Y-%m-01"))
+df$DATE <- NULL
+data <- merge(x=data,y=df,by="issue_d",all.x=TRUE)
 
 
 
 
-
-
-
-
-data = merge(x=data,y=zipCodes,by="addrZip",all.x=TRUE)
-data$avgWageIncRatio = data$avgWage / data$annualInc
-
-stateDiv <- data.frame(state.abb,state.division)
-names(stateDiv) <- c("addrState","addrStateDiv")
-row=data.frame(addrState=c("DC"),addrStateDiv=c("Federal"))
-stateDiv <- rbind(stateDiv,row)
-data <- merge(x=data,y=stateDiv,by="addrState",all.x=TRUE)
-
-notes <- data
-notes$isDef = ifelse(notes$loan_status=='Charged_Off' | notes$loan_status=='Default',1,0)
-notes$isL16 = ifelse(notes$loan_status=='Late_(16-30_days)',1,0)
-notes$isL31 = ifelse(notes$loan_status=='Late_(31-120_days)',1,0)
 
 
 # notes=na.omit(notes)

@@ -8,3 +8,4 @@ store/*.acc
 *.log
 store/system.log
 home.R
+xgb.DMatrix.data

@@ -274,6 +274,7 @@ save(data,file='C:/temp/data.rda')
 
 ############################## Modeling phase ###############################
 
+load('C:/temp/data.rda')
 
 # Convert to numeric (xgboost requires numeric)
 dmy <- dummyVars(" ~ .", data = data)
@@ -289,12 +290,56 @@ trainLabel <- train$percPaid
 train$percPaid <- NULL
 
 
-bst <- xgboost(data = data.matrix(train), label = trainLabel, max_depth = 4, missing = NaN,
-               eta = 1, nthread = 4, nrounds = 100,objective = "reg:linear")
+
+xgbGrid <- expand.grid(
+  nrounds = 100,
+  # eta = c(0.3,0.1,0.01,0.001,0.0001),
+  eta = c(0.3,0.1),
+  # max_depth = c(2,4,6,8,10),
+  max_depth = c(2,4),
+  gamma = c(0,1),
+  colsample_bytree = 0.8,
+  min_child_weight = 0
+)
+#max_delta_step=1
+
+xgbControl = trainControl (
+  method = 'cv',
+  number = 5,
+  verboseIter = TRUE,
+  returnData = FALSE,
+  returnResamp = 'all'
+)
+
+
+xgbTrain = train(
+  x = train,
+  y = trainLabel,
+  tuneGrid = xgbGrid,
+  trControl = xgbControl,
+  method = 'xgbTree',
+  objective = "reg:linear",
+  missing = NA
+)
+
+plot(xbgTrain)
+
+xgbTrain$results[order(xgbTrain$results$RMSE),]
 
 
 
 
+param <- list("objective" = "reg:linear")
+
+
+bst.cv <- xgb.cv(data = data.matrix(train), label = trainLabel, param=param, 
+  missing=NA, nfold=4, prediction=TRUE, nrounds=20 )
+
+bst.cv <- xgb.train(data = xgb.DMatrix(data.matrix(train),missing=NaN, label = trainLabel), param=param, 
+   nrounds=20 )
+
+bstIdx = which.min(bst.cv$dt[, test.rmse.mean]) 
+bstIdx
 
 
 # notes=na.omit(notes)

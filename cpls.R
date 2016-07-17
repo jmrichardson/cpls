@@ -12,6 +12,7 @@ library(ggplot2)
 library(xtable)
 library(gbm)
 library(tools)
+library(xgboost)
 
 # Function to set home directory
 defaultDir = '/home/user/cpls'
@@ -62,7 +63,7 @@ log <- create.logger(level='INFO',logfile=logFile)
 info(log,'-------------------------------------')
 info(log,'Starting Command Line PLS Version 1.0')
 
-# Set program operation mode (schedule, runOnce, test)
+# Set program operation mode (default is schedule)
 opMode <- 'schedule'
 args<-commandArgs(TRUE)
 if(!is.na(args[1])) {
@@ -73,26 +74,42 @@ if(!is.na(args[1])) {
     err('Invalid operation mode argument: Options are schedule, runOnce, test')
   }
 }
-info(log,paste('Operation Mode:',opMode))
-
-
-##########################
+### Overide opMode for testing purposes
+# Run once without list detection
+#
+# Exit after modeling notes
+opMode <- 'model'
+#
+# Run in test mode (desciption update later)
 # opMode <- 'test'
+#
+# Normal operation
+# opMode <- 'schedule'
 ##########################
+info(log,paste('Operation Mode:',opMode))
 
 # Create directories if they don't exist
 dir.create('store', showWarnings = FALSE)
 dir.create('tmp', showWarnings = FALSE)
 
-# Software load process
+# Software load process (includes model and users)
 info(log,'Loading software configuration')
 source('load.R')
 
+info(log,'Loading zip code database')
+source('zip.R')
+
+info(log,'Loading FRED data')
+source('fred.R')
+
+# info(log,'Loading historical notes')
+# load('data/data.rda')
 
 # Start continous loop
 loopCount <- 0
 while (1) {
   
+  # On initial loop, log schedule start times
   if (loopCount == 0) {
     if(opMode=='schedule') {
       for (time in startTimes) {
@@ -102,18 +119,18 @@ while (1) {
     }
   }
 
-  # Start system only at given start times (1 minute prior)
-  if ((hmMin() %in% startTimes & opMode=='schedule') | opMode == 'runOnce' | opMode == 'test') {
+  # Start system only at given start times (1 minute prior) or if running tests
+  if ((hmMin() %in% startTimes & opMode=='schedule') | opMode != 'schedule') {
         
     # Read log file (connection)
     closeAllConnections()
     con <- file(logFile,"r")
     seek(con,where=0,origin='end')
     
-    # Obtain initial cash for each user
+    # Obtain initial cash for each user (Try multiple times)
     for (i in 1:length(users)) {
       cashFlag <- TRUE
-      for (attempt in 1:5) {
+      for (attempt in 1:3) {
         users[[i]]$pre$jsonCash <- gURL(paste("https://api.lendingclub.com/api/investor/",apiVersion,"/accounts/",users[[i]]$accID,"/availablecash",sep=''),users[[i]]$token)
         if ( is.null(users[[i]]$pre$jsonCash) | length(users[[i]]$pre$jsonCash) == 0 ) {
           warn(log,paste('User (',users[[i]]$name,') - Unable to obtain available cash (Null API Response). Attempt: ',attempt,sep=""))
@@ -134,44 +151,43 @@ while (1) {
         info(log,paste('User (',users[[i]]$name,') - Initial cash available: ',printCurrency(users[[i]]$pre$cash),sep=""))
         break
       }
-
-      # load portfolio allocation script
-      if (exists('gradeAllocation', where=users[[i]]) | exists('termAllocation', where=users[[i]]) ) {
-        phase <- 'pre'
-        source('portfolioAlloc.R')  
-      }
-      
     }
     
     # Error checking
     if (cashFlag) {
-      warn('Unable to get initial user cash')
+      warn(log,'Unable to get initial user cash')
       next
     }
+
+    # If using allocation distribution, load allocation
+    if (exists('gradeAllocation', where=users[[i]]) | exists('termAllocation', where=users[[i]]) ) {
+      phase <- 'pre'
+      source('portfolioAlloc.R')  
+    }
     
-    # Get current platform note count
-    for (attempt in 1:5) {
+    # Get current platform note count (try multiple times)
+    for (attempt in 1:3) {
       newJson <- gURL(urlLoanListAll,users[[i]]$token)
       if ( is.null(newJson) | length(newJson) == 0 ) {
-        warn(log,paste("Note Count Attempt (",attempt," of 5) - Null API Response ",sep=''))
+        warn(log,paste("Note Count Attempt (",attempt," of 3) - Null API Response ",sep=''))
         next
       }
       if ( ! grepl("pubRec",newJson) ) {
-        warn(log,paste("List detection (",attempt," of 5) - Invalid API response",sep=''))
+        warn(log,paste("List detection (",attempt," of 3) - Invalid API response",sep=''))
         next
       }
       loans = fromJSON(newJson)$loans
       if ( ! nrow(loans) ) {
-          warn(log,paste("List detection (",attempt," of 5) - API Conversion Error",sep=''))
+          warn(log,paste("List detection (",attempt," of 3) - API Conversion Error",sep=''))
           next
       }
       noteCount <- dim(loans)[1]
       if (!is.numeric(noteCount)) {
-        warn(log,'Error getting platform note count')
+        warn(log,'Unable to obtain platform note count')
       } else {
         info(log,paste('Platform note count:',noteCount))
       }
-      # set some defaults for reporting to work (need to fix later)
+      # set some defaults for reporting to work in test mode
       listTime=with_tz(now(),"America/Los_Angeles")
       newNoteCount=0
       apiTimeElapse=0
@@ -181,24 +197,22 @@ while (1) {
     # Start list detection only in schedule mode
     if ( opMode == 'schedule') {
       
-      
-      
-      # Wait until 5 seconds before list to begin polling LC API
+      # Wait until X seconds before list to begin polling LC API
       # Check to make sure we are starting before scheduled start time (should never happen but checking anyways)
       if (!hmMin() %in% startTimes ) { 
         warn(log,'List detection cannot start after scheduled start time')
         next
       }
       # Sleep until just prior to start time
-      if (second(nowPST())<55) info(log,'Waiting for list detection ...')
-      while(second(nowPST())<55) {
+      if (second(nowPST())<50) info(log,'Waiting for list detection ...')
+      while(second(nowPST())<50) {
         Sys.sleep(1)
       }
       
       info(log,"Starting loan list detection")
       
-      # Obtain starting note count
-      for (attempt in 1:5) {
+      # Obtain starting note count (try multiple times)
+      for (attempt in 1:3) {
         startJson <- gURL(urlLoanList,users[[i]]$token)
         if ( is.null(startJson) | length(startJson) == 0 ) {
           warn(log,paste('Unable to obtain initial note count (Null API Response). Attempt: ',attempt,sep=""))
@@ -221,11 +235,8 @@ while (1) {
       list=FALSE
       # Set default apiTime
       apiTimeStart <- proc.time()[3]
-      if (opMode == 'test') {
-        num <- 1
-      } else {
-        num <- maxNoteCount
-      }
+      num <- maxNoteCount
+
       for (cnt in 1:num) {
         # Loop to wait 1 second between API calls
         while (TRUE) {
@@ -273,41 +284,42 @@ while (1) {
     # Load old batch of notes for test purposes only (ensures that my filter selects some notes on this batch)
     if (opMode == 'test') {
       loans <- read.csv('data/loans_sample.csv')
+    } else if (opMode == 'model') {
+      newJson <- gURL(urlLoanList,users[[i]]$token)
+      loans = fromJSON(newJson)$loans
     }
     
-    info(log,'Modeling available notes')
     
+    info(log,'Modeling available notes')
     # Record start of modeling time
-    startModelTime <- proc.time()
-
-
-    # Add model probability to each loan
+    # startModelTime <- proc.time()
+    
+    # Add zip code data
+    loans <- merge(x=loans,y=zip,by="addrZip",all.x=TRUE)
+    
+    # Add FRED data
+    loans <- cbind(loans,lastFred[rep(1,nrow(loans)),])
+    
+    # Feature engineering
     loans$earliestCrLine <- ymd(substring(loans$earliestCrLine,1,10))
     loans$n=ymd(Sys.Date())
     loans$earliestCrLineMonths=as.integer(round((loans$n - loans$earliestCrLine)/30.4375)-1)
-    loans$installmentIncomeRatio=loans$installment/(loans$annualInc/12)
+    loans$amountTerm <- loans$loanAmount/loans$term
+    loans$amountTermIncomeRatio=loans$amountTerm/(loans$annualInc/12)
     loans$revolBalAnnualIncRatio=loans$revolBal/loans$annualInc
-    loans$grade <- factor(loans$grade)
-    loans$subGrade <- factor(loans$subGrade)
-    loans$homeOwnership <- factor(loans$homeOwnership)
-    loans$purpose <- factor(loans$purpose)
-    loans$addrState <- factor(loans$addrState)
-    loans$addrZip <- factor(loans$addrZip)
-    loans$model=predict(fitGbm,newdata=loans,n.trees=fitGbm$n.trees,type="response")
+
+    # Add model probability to each loan  
+    loans$model <- predict(xgbModel, data.matrix(data.frame(predict(dmy, newdata=loans[,featureNames]))), missing=NA)
       
-    elapsedModelTime <- round(proc.time() - startModelTime[3],2)
-
-    loans$n=NULL
-    loans$gbmProb=NULL
-    loans$survProb=NULL
-
-    loans$pctFunded = loans$fundedAmount / loans$loanAmount
-    avgPctFunded <- loans$pctFunded
-    timeStampFile = gsub(" ","_",gsub(":","-",listTime))
+    # elapsedModelTime <- round(proc.time() - startModelTime[3],2)
 
     # Record start time of selection process per user
     startTime <- proc.time()
 
+    if (opMode == 'model') {
+      info(log, 'Model complete')
+      stop()
+    }
 
     # Process each user account
     info(log,'Processing all user accounts')
@@ -520,6 +532,12 @@ while (1) {
             
       }
     },mc.cores=cores)
+
+    # Loans percent funded
+    loans$n=NULL
+    loans$pctFunded = loans$fundedAmount / loans$loanAmount
+    avgPctFunded <- loans$pctFunded
+    timeStampFile = gsub(" ","_",gsub(":","-",listTime))
     
     # Analyze portfolio for all users
     source('portfolio.R', local=TRUE)
@@ -534,9 +552,7 @@ while (1) {
     
     # Save the loans for testing purposes
     # write.csv(loans,row.names=FALSE,na='',file=paste('store/',gsub(':','-',listTime),' loans.csv',sep=''))
-    
 
-    
     if (opMode == 'runOnce' | opMode == 'test') {
       info(log,'Operation complete')
       break

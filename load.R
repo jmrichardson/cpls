@@ -1,7 +1,7 @@
 
-# Load pre-built GBM model
+# Load trained model
 info(log,'Loading machine learning model')
-load('data/fitGbm.rda')
+load('data/xgbModel.rda')
 
 # Load cpls configuration
 config <- 'store/config.R'

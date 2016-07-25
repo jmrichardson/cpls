@@ -12,5 +12,4 @@ xgb.DMatrix.data
 *.txt
 data/zip_codes.csv
 data/stats.rda
-data/xgbModel.rda
 data/xgbModel2.rda

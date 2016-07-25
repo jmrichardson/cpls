@@ -1,0 +1,162 @@
+---
+title: "Model Performance"
+author: "John Richardson"
+date: "July 22, 2016"
+output: html_document
+---
+
+```{r options, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, 
+  cache=TRUE, 
+  options(scipen=999, digits=6),
+  comment=NA)
+```
+
+```{r global, warning=FALSE}
+
+# Load libraries
+library('InformationValue')
+library('xgboost')
+library('caret')
+library('plotly')
+
+# Seed for model comparisons
+set.seed(1)
+
+# Need to set working directory manually
+setwd("C:/Users/John/Dropbox/cpls")
+
+# Load saved model
+load('data/xgbModel.rda')
+load('data/statsModel.rda')
+
+# Use same data train/test sets
+train <- stats[inTrain,]
+test <- stats[-inTrain,]
+
+# Obtain actuals and predictions
+actuals <- test$label
+predictedScores <- predict(xgbModel, data.matrix(test), missing=NA)
+
+# Get optimal cutoff 
+opt <- optimalCutoff(actuals, predictedScores, optimiseFor = "Both", returnDiagnostics = F)
+
+# Obtain predicted class based on probability and optimal cutoff
+predictedClasses <- ifelse(predictedScores>opt,1,0)
+
+# Get importance matrix
+names = dimnames(data.matrix(train))[[2]]
+importance_matrix = xgb.importance(names, model=xgbModel)
+
+# Get concordance
+#con <- Concordance(actuals, predictedScores)
+#som <- somersD(actuals, predictedScores)
+
+cm <- caret::confusionMatrix(relevel(factor(predictedClasses),"1"),relevel(factor(actuals),'1'))
+```
+
+### Overview
+
+Peer Lending Server uses the XGBoost learning model underwrite Lending Club loans. XGBoost is an extremely popular gradient boosting tree model used by many data scientists and is the most successful machine learning algorithm in Kaggle competitions.  This article documents the model performance.
+
+When measuring a model's performance, it is important to use test data the model has not seen before.  PLS  designates 25% of the historical loans (stratified) for testing purposes which currently equates to roughly 50K loans.  
+
+## Confusion Matrix
+
+The confusion matrix measures the model's ability to correctly classify each loan as fully paid (1) or charged off (0).  Because the model generates a probability of being fully paid, a cutoff point must be determined to designate when a loan should be classified as good or bad.  An optimal cutoff threshold is calculated that optimizes the model sensitifity and specificity:
+
+```{r}
+opt
+```
+
+Of the The `r cm$table[1,1] + cm$table[1,2]` predicted fully paid loans, the model was correct
+
+
+The following is the model's confustion matrix and additional statistics:
+
+```{r confustionMatrix}
+print(cm)
+```
+
+Reference:
+
+.         | Actual Fully Paid | Actual Charged Off
+--------- | ---------- | --------
+Predict Fully Paid | TP | FP
+Predict Charged Off | FN | TN
+
+Accuracy = (TP+TN)/(TP+FN+FP+TN)
+
+Sensitivity = TP/(TP+FN)
+
+Specificity = TN/(FP+TN)
+
+Prevalence = (TP+FN)/(TP+FP+FN+TN)
+
+PPV = TP/(TP+FP)
+
+NPV = TN/(TN+FN)
+
+Detection Rate = TP/(TP+FP+FN+TN)
+
+Detection Prevalence = (TP+FP)/(TP+FP+FN+TN)
+
+Balanced Accuracy = (Sensitivity+Specificity)/2
+
+
+
+
+
+
+
+
+Accuracy measures how often the model is correct overall:
+```{r}
+paste('(',cm$table[1,1],' + ',cm$table[2,2],') / (', cm$table[1,1],'+',cm$table[1,2],'+',cm$table[2,1],'+',cm$table[2,2],') = ',cm$overall[1])
+```
+
+
+```{r}
+paste(cm$table[2,2],'/ ( ',cm$table[1,2],' + ',cm$table[2,2],' ) = ',cm$byClass[1])
+```
+
+
+```{r}
+paste(cm$table[1,1],'/ ( ',cm$table[1,2],' + ',cm$table[2,2],' ) = ',cm$byClass[2])
+```
+
+
+Precision measures how often the model is correct when the model predicts fully paid:
+
+
+Specificity measures how often the model is correct when the model predicts charged off:
+
+## Concordance
+
+This is the ratio of good vs bad by percentage
+
+```{r concordance, fig.height=3}
+# plot_ly(values=c(con$Concordance,con$Discordance),
+#   labels=c('Concordance','Discordance'),
+#   type='pie')  %>%
+#   layout(title = "Concordance vs Discordance")
+# paste('Fully Paid and Charged Off Combinations:', formatC(con$Pairs, format="d", big.mark=','))
+
+```
+
+
+### Area Under Curve
+
+```{r auc}
+plotROC(actuals=test$label,predictedScores=predictedScores)
+```
+
+### Important Features
+
+Most important Lending Club fields:
+
+```{r importanceMatrix}
+data.frame(importance_matrix)
+```
+
+

@@ -5,6 +5,7 @@ library('InformationValue')
 library('xgboost')
 library('caret')
 library('plotly')
+library('xgboost')
 
 # Seed for model comparisons
 set.seed(1)
@@ -48,7 +49,7 @@ if(!dir.exists(dir)) {
   setwd(dir)
 }
 
-# Load original stats and combine with model prediction
+# Load data
 if (!exists('stats')) { 
   # Load saved model with stats
   load('data/statsModel.rda')
@@ -66,30 +67,34 @@ if (!exists('stats')) {
   # Get model prediction
   stats$label <- statsModel$label
   rm(statsModel)
+  
+  # Use same data train/test sets
+  train <- stats[inTrain,]
+  test <- stats[-inTrain,]
+  
+  # Obtain actuals and predictions
+  actuals <- test$label
+  predictedScores <- predict(xgbModel, data.matrix(test), missing=NA)
+  
+  # Get optimal cutoff 
+  opt <- optimalCutoff(actuals, predictedScores, optimiseFor = "Both", returnDiagnostics = F)
+  
+  # Obtain predicted class based on probability and optimal cutoff
+  predictedClasses <- ifelse(predictedScores>opt,1,0)
+  
+  # Get importance matrix
+  names = dimnames(data.matrix(train))[[2]]
+  importance_matrix = xgb.importance(names, model=xgbModel)
+  
+  # Get concordance
+  #con <- Concordance(actuals, predictedScores)
+  #som <- somersD(actuals, predictedScores)
+  
+  cm <- caret::confusionMatrix(relevel(factor(predictedClasses),"1"),relevel(factor(actuals),'1'))
 }
 
 
 
-
-#
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-server <- function(input, output, session) { }
 
 ui <- (
   fluidPage(
@@ -99,9 +104,18 @@ ui <- (
         sliderInput("n", "Number of points", 10, 200,
           value = 50, step = 10)
       ),
-      plotOutput("plot1")
+      renderPrint("cm")
     )
   )
 )
 
+server <- function(input, output, session) { 
+  output$cm <- renderText({
+    print(cm)
+  })
+}
+
+
 shinyApp(ui = ui, server = server)
+
+

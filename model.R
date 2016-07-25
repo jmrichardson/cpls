@@ -134,6 +134,10 @@ stats <- data.frame(predict(dmy, newdata = stats))
 # Add target percPaid after obtaining feature names and creating dmy model
 stats$percPaid <- percPaid
 
+#
+# Stop here if prep'ing for model testing
+#
+
 # Create stratified train and test partition
 inTrain <- createDataPartition(stats$percPaid,p=0.75, list=FALSE)
 train <- stats[inTrain,]
@@ -209,7 +213,7 @@ xgbModel <- xgboost(
   nrounds = results[which.min(results[,2]),1]
 )
 
-save(xgbModel,inTrain,featureNames,dmy, file='data/xgbModel.rda')
+save(xgbModel,sol,inTrain,featureNames,dmy, file='data/xgbModel.rda')
 
 
 stop()
@@ -217,12 +221,10 @@ stop()
 
 #----------------------------------------- model performance testing
 
-# load stats and model
-load('data/stats.rda')
+# Load model
 load('data/xgbModel.rda')
 
 # Use same data sets
-stats <- stats[,featureNames]
 train <- stats[inTrain,]
 test <- stats[-inTrain,]
 
@@ -249,6 +251,8 @@ rmse(actual,pred)
 mae(actual,pred)
 
 
+plotROC(actuals=test$percPaid,predictedScores=pred)
+
 
 
 #### Classification
@@ -258,7 +262,7 @@ library('ROCR')
 
 actual <- ifelse(test$percPaid<1,0,1)
 
-optim.thresh(actual,pred)
+opt <- optim.thresh(actual,pred)$'sensitivity=specificity'
 
 
 
@@ -283,7 +287,11 @@ predObj@cutoffs[[1]][which.min(perfObj@y.values[[1]])]
 
 
 
-pred <- ifelse(pred>.843,1,0)
+pred <- ifelse(pred>opt,1,0)
+
+confusionMatrix(pred,actual)
+
+
 
 postResample(pred,actual)
  sensitivity(pred,actual)

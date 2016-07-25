@@ -78,7 +78,7 @@ if(!is.na(args[1])) {
 # Run once without list detection
 #
 # Exit after modeling notes
-opMode <- 'model'
+# opMode <- 'model'
 #
 # Run in test mode (desciption update later)
 # opMode <- 'test'

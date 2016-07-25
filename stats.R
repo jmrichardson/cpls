@@ -56,8 +56,8 @@ dateConv <- function(x, year=1925){
 set.seed(1)
 
 # Location of LC statistics stats
-# statsDir <- 'C:/temp'
-statsDir <- '/var/tmp'
+statsDir <- 'C:/temp'
+# statsDir <- '/var/tmp'
 
 # Read in Lending Club statistics
 stats1=read.csv(paste(statsDir,'LoanStats3a_securev1.csv',sep='/'),header=TRUE,skip=1)
@@ -190,6 +190,7 @@ stats$initialListStatus=as.factor(toupper(stats$initialListStatus))
 stats$revolBal <- as.numeric(stats$revolBal)
 stats$issue_d<-as.Date(dateConv(dmy(paste("01", stats$issue_d, sep = "-"))))
 stats$term <-as.integer(as.character(gsub(" months", "", stats$term)))
+stats$intRate <-as.numeric(as.character(gsub("%", "", stats$intRate)))
 
 # Feature engineering
 stats$earliestCrLine<-dateConv(dmy(paste("01", stats$earliestCrLine, sep = "-")))

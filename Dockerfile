@@ -43,7 +43,8 @@ CMD /usr/bin/Rscript --vanilla /home/user/cpls/cpls.R >> /home/user/cpls/store/c
 # docker run -v /home/john/cpls:/home/user/cpls/store cpls cp /home/user/cpls/data/user_name.acc /home/user/cpls/store/
 
 # docker run -v /home/john/cpls:/home/user/cpls/store cpls /usr/bin/Rscript --vanilla /home/user/cpls/cpls.R runOnce
-# docker run -v /home/john/cpls:/home/user/cpls/store -d cpls
+# docker run --restart=on-failure:10 -v /home/john/cpls:/home/user/cpls/store -d cpls
+# docker inspect -f "{{ .RestartCount }}" b30cc9d2ddf4
 # docker run -v /home/john/cpls:/home/user/cpls/store -it cpls bash
 
 # docker build -t cpls --force-rm=true --rm=true .

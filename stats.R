@@ -205,9 +205,9 @@ stats$revolBalAnnualIncRatio=stats$revolBal/stats$annualInc
 source('zip.R')
 stats <- merge(x=stats,y=zip,by="addrZip",all.x=TRUE)
 
-# Add in FRED stats
-source('fred.R')
-stats <- merge(x=stats,y=allFred,by="issue_d",all.x=TRUE)
+# # Add in FRED stats
+# source('fred.R')
+# stats <- merge(x=stats,y=allFred,by="issue_d",all.x=TRUE)
 
 # Save historical stats
 save(stats,file='data/stats.rda')

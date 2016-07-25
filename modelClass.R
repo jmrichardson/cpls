@@ -1,14 +1,6 @@
 # This model depends upon the following external stats (Be sure to get latest available):
 # Lending club statistics:  lendingclub.com
 # Zip code statistics: https://www.irs.gov/uac/soi-tax-stats-individual-income-tax-statistics-zip-code-stats-soi
-# St Louis Fred:  https://fred.stlouisfed.org/
-# * Change in labor market conditinos
-# * Consumer price index for all urban consumers
-# * Effective federal funds rate
-# * Leading index for the united states
-# * Smoothed US Recession probabilities
-# * S&P 500
-# * St Louis Fed Financial Stress Index
 
 # Load required libraries
 library('parallel')

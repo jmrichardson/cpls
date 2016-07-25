@@ -13,6 +13,7 @@ library(xtable)
 library(gbm)
 library(tools)
 library(xgboost)
+library(caret)
 
 # Function to set home directory
 defaultDir = '/home/user/cpls'
@@ -76,6 +77,7 @@ if(!is.na(args[1])) {
 }
 ### Overide opMode for testing purposes
 # Run once without list detection
+# opMode <- 'runOnce'
 #
 # Exit after modeling notes
 # opMode <- 'model'
@@ -99,11 +101,8 @@ source('load.R')
 info(log,'Loading zip code database')
 source('zip.R')
 
-info(log,'Loading FRED data')
-source('fred.R')
-
-# info(log,'Loading historical notes')
-# load('data/data.rda')
+info(log,'Loading model')
+load('data/xgbModel.rda')
 
 # Start continous loop
 loopCount <- 0
@@ -285,7 +284,7 @@ while (1) {
     if (opMode == 'test') {
       loans <- read.csv('data/loans_sample.csv')
     } else if (opMode == 'model') {
-      newJson <- gURL(urlLoanList,users[[i]]$token)
+      newJson <- gURL(urlLoanListAll,users[[i]]$token)
       loans = fromJSON(newJson)$loans
     }
     
@@ -298,7 +297,7 @@ while (1) {
     loans <- merge(x=loans,y=zip,by="addrZip",all.x=TRUE)
     
     # Add FRED data
-    loans <- cbind(loans,lastFred[rep(1,nrow(loans)),])
+    # loans <- cbind(loans,lastFred[rep(1,nrow(loans)),])
     
     # Feature engineering
     loans$earliestCrLine <- ymd(substring(loans$earliestCrLine,1,10))
@@ -308,6 +307,7 @@ while (1) {
     loans$amountTermIncomeRatio=loans$amountTerm/(loans$annualInc/12)
     loans$revolBalAnnualIncRatio=loans$revolBal/loans$annualInc
 
+    
     # Add model probability to each loan  
     loans$model <- predict(xgbModel, data.matrix(data.frame(predict(dmy, newdata=loans[,featureNames]))), missing=NA)
       

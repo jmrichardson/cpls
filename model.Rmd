@@ -27,8 +27,8 @@ set.seed(1)
 setwd("C:/Users/John/Dropbox/cpls")
 
 # Load saved model
-load('data/xgbModel.rda')
-load('data/statsModel.rda')
+load('data/model.rda')
+load('data/modelStats.rda')
 
 # Use same data train/test sets
 train <- stats[inTrain,]

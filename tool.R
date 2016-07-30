@@ -55,7 +55,8 @@ if (!exists('stats')) {
   load('data/statsModel.rda')
   statsModel <- stats
   
-  # Load LC stats data
+  # Load model and stats data
+  load('data/model.rda')
   load('data/stats.rda')
   
   # Model only complete notes
@@ -74,25 +75,33 @@ if (!exists('stats')) {
   
   # Obtain actuals and predictions
   actuals <- test$label
-  predictedScores <- predict(xgbModel, data.matrix(test), missing=NA)
+  predictedScores <- predict(xgbModel, data.matrix(predict(dmy, newdata=test[,featureNames])), missing=NA)
   
   # Get optimal cutoff 
-  opt <- optimalCutoff(actuals, predictedScores, optimiseFor = "Both", returnDiagnostics = F)
+  opt <- round(optimalCutoff(actuals, predictedScores, optimiseFor = "Both", returnDiagnostics = F),2)
   
   # Obtain predicted class based on probability and optimal cutoff
   predictedClasses <- ifelse(predictedScores>opt,1,0)
-  
-  # Get importance matrix
-  names = dimnames(data.matrix(train))[[2]]
-  importance_matrix = xgb.importance(names, model=xgbModel)
-  
-  # Get concordance
-  #con <- Concordance(actuals, predictedScores)
-  #som <- somersD(actuals, predictedScores)
-  
-  cm <- caret::confusionMatrix(relevel(factor(predictedClasses),"1"),relevel(factor(actuals),'1'))
 }
 
+
+
+
+server <- function(input, output, session) { 
+  
+  # Reactive 
+  cm <- reactive({
+
+    # Obtain predicted class based on probability and optimal cutoff
+    predictedClasses <- ifelse(predictedScores>as.numeric(input$thresh),1,0)
+    
+    caret::confusionMatrix(relevel(factor(predictedClasses),"1"),relevel(factor(actuals),'1'))
+  })
+  
+  output$cm <- renderPrint({
+    cm()
+  })
+}
 
 
 
@@ -101,19 +110,14 @@ ui <- (
     verticalLayout(
       titlePanel("Filter Analysis"),
       wellPanel(
-        sliderInput("n", "Number of points", 10, 200,
-          value = 50, step = 10)
+        selectInput("thresh", label = 'Threshold', 
+        choices = as.list((1:99)/100), 
+        selected = opt)
       ),
-      renderPrint("cm")
+      verbatimTextOutput ("cm")
     )
   )
 )
-
-server <- function(input, output, session) { 
-  output$cm <- renderText({
-    print(cm)
-  })
-}
 
 
 shinyApp(ui = ui, server = server)

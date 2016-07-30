@@ -11,3 +11,4 @@ home.R
 xgb.DMatrix.data
 *.txt
 stats.rda
+data/modelStats.rda

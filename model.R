@@ -1,14 +1,6 @@
 # This model depends upon the following external stats (Be sure to get latest available):
 # Lending club statistics:  lendingclub.com
 # Zip code statistics: https://www.irs.gov/uac/soi-tax-stats-individual-income-tax-statistics-zip-code-stats-soi
-# St Louis Fred:  https://fred.stlouisfed.org/
-# * Change in labor market conditinos
-# * Consumer price index for all urban consumers
-# * Effective federal funds rate
-# * Leading index for the united states
-# * Smoothed US Recession probabilities
-# * S&P 500
-# * St Louis Fed Financial Stress Index
 
 # Load required libraries
 library('parallel')
@@ -21,6 +13,13 @@ library('xgboost')
 library('NMOF')
 library('snow')
 library('quantmod')
+library('InformationValue')
+
+# No scientific
+options("scipen"=10, "digits"=10)
+
+# Seed for model comparisons
+set.seed(1)
 
 # Function to set relative home directory (requires latest Rstudio)
 defaultDir = '/home/user/cpls'
@@ -61,16 +60,14 @@ if(!dir.exists(dir)) {
   setwd(dir)
 }
 
+# Load LC stats data
 load('data/stats.rda')
 
 # Model only complete notes
 stats = subset(stats,(loan_status=='Fully Paid' | loan_status=='Charged Off'))
 
-# Create regression target (percent of principal paid)
-percPaid <- stats$total_rec_prncp/stats$loanAmount
-# Shouldn't happen, but just in case
-percPaid[percPaid < 0] <- 0
-percPaid[percPaid > 1] <- 1
+# Get true label class
+label <- ifelse(stats$loan_status=='Fully Paid',1,0)
 
 # Remove unnecessary fields
 stats$id <- NULL
@@ -116,10 +113,13 @@ stats$last_fico_range_low <- NULL
 
 
 # Remove LC influenced fields - All of these values are LC dependent and changes over time
-stats$intRate <- NULL    
+stats$intRate <- NULL
 stats$grade <- NULL
 stats$subGrade <- NULL
 stats$installment <- NULL
+
+# Remove term
+stats$term <- NULL
 
 # Remove unimportant features based on model importance
 
@@ -131,117 +131,163 @@ featureNames <- colnames(stats)
 dmy <- dummyVars(" ~ .", data = stats)
 stats <- data.frame(predict(dmy, newdata = stats))
 
-# Add target percPaid after obtaining feature names and creating dmy model
-stats$percPaid <- percPaid
+# Remove unimportant features based on trained model
+# if(exists('features')) {
+#   stats <- stats[,features]
+# }
+
+# Add label
+stats$label <- label
 
 #
 # Stop here if prep'ing for model testing
 #
 
 # Create stratified train and test partition
-inTrain <- createDataPartition(stats$percPaid,p=0.75, list=FALSE)
+inTrain <- createDataPartition(stats$label,p=0.75, list=FALSE)
 train <- stats[inTrain,]
 test <- stats[-inTrain,]
 
-#train = train[0:10000,]
+# train = train[0:500,]
 
-# Create outcome vector for xgboost
-trainLabel <- train$percPaid
-train$percPaid <- NULL
+# Create outcome vector for xgboost and remove from training set
+trainLabel <- train$label
+train$label <- NULL
 
-# Maximum number of xgboost trees
-nrounds <- 10000
+# xgboost task parameters
+nrounds <- 3000
+folds <- 5
+obj <- 'binary:logistic'
+eval <- 'logloss'
 
-# Table to track performance and create final model
+# Parameter grid to search
+params <- list(
+  eval_metric = eval,
+  objective = obj,
+  # eta = c(1, 0.01, 0.1, 0.01),
+  eta = 0.1,
+  # max_depth = c(4, 6, 8, 10, 12),
+  max_depth = 4,
+  # max_delta_step = c(0, 1),
+  max_delta_step = 1,
+  # colsample_bytree = c(0.5, 0.7),
+  colsample_bytree = .7,
+  # gamma = c(0, 0.5, 0.7, 1)
+  gamma = .7
+)
+
+# Table to track performance from each worker node
 res <- data.frame()
 
-# Function to cross validate train set with params and early stopping
-xgbMSE <- function (params) {
+# Simple cross validated xgboost training function (returning minimum error for grid search)
+xgbCV <- function (params) {
   fit <- xgb.cv(
     data = data.matrix(train), 
     label = trainLabel, 
     param =params, 
     missing = NA, 
-    nfold = 5, 
+    nfold = folds, 
     prediction = FALSE,
-    early.stop.round = 3,
+    early.stop.round = 5,
     maximize = FALSE,
     nrounds = nrounds
   )
   rounds <- nrow(fit)
-  minIdx <- which.min(fit[,test.rmse.mean]) 
-  minRMSE <- fit[minIdx,]$test.rmse.mean
-  res <<- rbind(res,c(minIdx,minRMSE,rounds))
-  colnames(res) <<- c('minIdx','minRMSE','rounds')
-  return(minRMSE)
+  metric = paste('test.',eval,'.mean',sep='')
+  idx <- which.min(fit[,fit[[metric]]]) 
+  val <- fit[idx,][[metric]]
+  res <<- rbind(res,c(idx,val,rounds))
+  colnames(res) <<- c('idx','val','rounds')
+  return(val)
 }
 
-# Parameter grid to search
-params <- list(
-  objective = 'reg:linear',
-  #eta = .3,
-  eta = c(0.3,0.1,0.01),
-  max_depth = c(2,4,6,8,10),
-  gamma = 0,
-  #gamma = c(0,1),
-  colsample_bytree = 0.8,
-  min_child_weight = 0
-)
-
-# Find best model parameters in parallel
-# cl <- makeCluster(detectCores()-1) 
-cl <- makeCluster(4) 
-clusterExport(cl, c("xgb.cv",'train','trainLabel','nrounds','res'))
+# Find minimal testing error in parallel
+cl <- makeCluster(round(detectCores()/2)) 
+clusterExport(cl, c("xgb.cv",'train','trainLabel','nrounds','res','eval','folds'))
 sol <- gridSearch(
-  fun = xgbMSE,
+  fun = xgbCV,
   levels = params,
   method = 'snow',
   cl = cl,
   keepNames = TRUE,
   asList = TRUE
 )
+
 # Combine all model results
 comb=clusterEvalQ(cl,res)
-results <- ldply(comb,data.frame)
 stopCluster(cl)
+results <- ldply(comb,data.frame)
+df <- suppressWarnings(data.frame(Reduce(rbind, sol$levels)))
+df <- cbind(val=sol$values,df)
+results <- arrange(merge(results,df,by='val'),val)
 
-# xgbMSE(sol$minlevels)
-
+# Train model with appropriate parameters
+params <- c(sol$minlevels,objective = obj, eval_metric = eval)
 xgbModel <- xgboost(
   data = xgb.DMatrix(data.matrix(train),missing=NaN, label = trainLabel),
-  param = sol$minlevels,
-  nrounds = results[which.min(results[,2]),1]
+  param = params,
+  nrounds = head(results$idx,1)
 )
 
-save(xgbModel,sol,inTrain,featureNames,dmy, file='data/xgbModel.rda')
+# Show cv model results
+print(results)
 
+# Quick plot of AUC
+actual <- test$label
+pred <- predict(xgbModel, data.matrix(test), missing=NA) 
+AUROC(actual, pred)
+
+# Save model and train/test data
+save(xgbModel,results,params,inTrain,featureNames,dmy, file='data/model.rda')
+save(stats, file='data/modelStats.rda')
 
 stop()
+
+# Feature selection logic
+# Used after model trained to determine non important fields
+
+df <- as.data.frame(importance_matrix)
+df <- df[df$Gain>=.001,]
+features <- df$Feature
+
+
 
 
 #----------------------------------------- model performance testing
 
 # Load model
-load('data/xgbModel.rda')
+load('data/model.rda')
+load('data/modelStats.rda')
 
 # Use same data sets
 train <- stats[inTrain,]
 test <- stats[-inTrain,]
 
-# get the feature real names
+# Get important features and plot
 names = dimnames(data.matrix(train))[[2]]
-# compute feature importance matrix
 importance_matrix = xgb.importance(names, model=xgbModel)
-
-# plot
 gp = xgb.plot.importance(importance_matrix)
 print(gp) 
 
+# Get optimal threshold
+opt <- optimalCutoff(actuals, predictedScores, optimiseFor = "Both", returnDiagnostics = F)
 
-actual <- test$percPaid
-pred <- predict(xgbModel, data.matrix(test), missing=NA) 
-head(pred, 10) 
-head(actual,10)
+# Compute and plot AuC
+actuals <- test$label
+predictedScores <- predict(xgbModel, data.matrix(test), missing=NA) 
+AUROC(actuals, predictedScores)
+
+kappaCohen(actuals, predictedScores, threshold = 0.5)
+ks_plot(actuals, predictedScores)
+ks_stat(actuals, predictedScores, returnKSTable = F)
+
+plotROC(actuals=test$label,predictedScores=pred)
+
+
+
+
+
+
 
 
 postResample(pred,actual)
@@ -251,13 +297,20 @@ rmse(actual,pred)
 mae(actual,pred)
 
 
-plotROC(actuals=test$percPaid,predictedScores=pred)
+
+
+plotROC(actuals=test$label,predictedScores=pred)
+
+
+
 
 
 
 #### Classification
-library('SDMTools')
+
 library('ROCR')
+
+
 
 
 actual <- ifelse(test$percPaid<1,0,1)

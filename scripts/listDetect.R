@@ -8,22 +8,24 @@ if ( opMode == 'schedule') {
     next
   }
   # Sleep until just prior to start time
-  if (second(nowPST())<45) info(log,'Waiting for list detection ...')
-  while(second(nowPST())<45) {
+  startSec = 45
+  if (second(nowPST())<startSec) info(log,'Waiting for list detection ...')
+  while(second(nowPST())<startSec) {
     Sys.sleep(1)
   }
   
-  info(log,"Starting loan list detection")
+  info(log,"Starting new loan list detection")
   
   # Obtain starting note count (try multiple times)
   for (attempt in 1:3) {
     startJson <- gURL(urlLoanList,users[[i]]$token)
-    if ( is.null(startJson) | length(startJson) == 0 ) {
-      warn(log,paste('Unable to obtain initial note count (Null API Response). Attempt: ',attempt,sep=""))
+    if ( nchar(gsub("[[:blank:]]", "", startJson)) <= 1) {
+      warn(log,paste('Unable to obtain initial note count (Empty API Response). Attempt: ',attempt,sep=""))
       next
     }
     if ( ! grepl("pubRec",startJson) ) {
       warn(log,paste('Unable to obtain initial note count (Invalid API Response). Attempt: ',attempt,sep=""))
+      warn(log,paste("API Response: ", substr(startJson, start=1, stop=50),"...",sep=''))
       next
     }
     prevIds <- fromJSON(startJson)$loans$id
@@ -31,7 +33,8 @@ if ( opMode == 'schedule') {
       warn(log,paste('Unable to obtain initial note count (API Conversion Error). Attempt: ',attempt,sep=""))
       next
     }
-    info(log,paste("Previous note count:",length(prevIds)))
+    numPrev <- length(prevIds)
+    info(log,paste("Initial note count:",numPrev))
     break
   } 
 
@@ -51,12 +54,13 @@ if ( opMode == 'schedule') {
         break
       }
     }
-    if ( is.null(newJson) | length(newJson) == 0 ) {
-      warn(log,paste("List detection (",cnt," of ",num,") - Null API Response ",sep=''))
+    if ( nchar(gsub("[[:blank:]]", "", newJson)) <= 1) {
+      warn(log,paste("List detection (",cnt," of ",num,") - Empty API Response ",sep=''))
       next
     }
     if ( ! grepl("pubRec",newJson) ) {
       warn(log,paste("List detection (",cnt," of ",num,") - Invalid API response",sep=''))
+      warn(log,paste("API Response: ", substr(newJson, start=1, stop=50),"...",sep=''))
       next
     }
     loans = fromJSON(newJson)$loans
@@ -64,17 +68,18 @@ if ( opMode == 'schedule') {
         warn(log,paste("List detection (",cnt," of ",num,") - API Conversion Error",sep=''))
         next
     }
-    newIds <- loans$id
+    nids <- loans$id
+    newIds <- nids[! nids %in% prevIds]
     newNoteCount <- length(newIds)
     
     # Must have no previous notes in new notes, and greater than threshold to detect list
-    if ( ! any(prevIds %in% newIds) & newNoteCount > numNotesThresh ) {
+    if ( newNoteCount > numNotesThresh ) {
       list=TRUE
       listTime=with_tz(now(),"America/Los_Angeles")
       info(log,paste("List detected - New note count: ",newNoteCount,sep=''))
       break
     } else {
-      info(log,paste("List detection (",cnt," of ",num,")",sep=''))
+      info(log,paste("Detection ",cnt," of ",num," (New note count: ",newNoteCount,"; Requires: ", numNotesThresh,")",sep=''))
     }
   }
 

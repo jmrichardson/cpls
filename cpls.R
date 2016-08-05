@@ -414,6 +414,8 @@ while (1) {
     if (shutdown) system(shutdownCmd)
     
     if(opMode=='schedule') {
+      # Sleep just to make sure it doesn't finish too soon to start again in startTimes
+      Sys.sleep(60-startSec)
       info(log,'Waiting for next scheduled start time ...')
     }
     

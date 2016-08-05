@@ -12,3 +12,4 @@ xgb.DMatrix.data
 *.txt
 stats.rda
 data/modelStats.rda
+df.rda

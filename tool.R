@@ -114,41 +114,19 @@ if (!exists('test')) {
   # Only use test set (data model has not seen)
   test <- stats[-inTrain,]
   
+  # Set label
+  test$label=as.factor(test$label)
 
-  
-  
-  
   # Obtain model predictions
   test$model <- predict(xgbModel, data.matrix(predict(dmy, newdata=test[,featureNames])), missing=NA)
+  
+  # Assume all test observations are fully paid
+  test$class = 1
+  test$class=as.factor(test$class)
   
   # Release memory
   rm(stats)
   rm(statsModel)
-  
-  # Available features of test data set
-  features <- names(test)
-  features <- features[!features %in% c("model","label","id","memberId")]
-  
-  # discretize features with respect to loan status
-  df <- test
-  for(col in features) {
-    if ( ! is.factor(df[[col]]) ) {
-      
-      if ( length(unique(df[[col]])) < 10 ) {
-        df[[col]]=discretize(df[[col]],method="cluster",categories=4)
-        next
-      }
-      
-      x=smbinning(df,y="label",x=col,p=0.05)
-      if ( x[1]=="No Bins") {
-        df[[col]]=discretize(df[[col]],method="cluster",categories=4)
-        next
-      }
-      
-      df[[col]]=cut(df[[col]],unique(c(min(df[[col]]),x$cuts,max(df[[col]]))),dig.lab=10,include.lowest=TRUE,right=TRUE)
-    }
-  }
-  
   
 }
 
@@ -167,25 +145,11 @@ server <- function(input, output, session) {
     }
   })
 
-  # Get optimal threshold  
-  opt <- reactive ({
-    round(optimalCutoff(data()$label, data()$model, optimiseFor = "Both", returnDiagnostics = F),2)
-  })
- 
-  # Obtain predicted class based on probability and optimal cutoff   
-  predClass <- reactive ({
-    ifelse(data()$model>opt,1,0)
-  })
-    
-  # Predicted Classes
-  class <- reactive ({
-    ifelse(data()$model>as.numeric(input$thresh),1,0)
-  })
-  
+
   # Confusion matrix
   cm <- reactive({
     # Obtain predicted class based on probability and optimal cutoff
-    caret::confusionMatrix(relevel(factor(class()),"1"),relevel(factor(data()$label),'1'))
+    caret::confusionMatrix(relevel(factor(data()$class,"1")),relevel(factor(data()$label),'1'))
   })
   
   
@@ -237,15 +201,10 @@ margin-top: 10px;
       fluidRow(
         wellPanel(
           fluidRow(
-            column(10,
               textareaInput("filter", "Filter", rows=4,'term==36')
-            ),
-            column(2,
-              selectInput("thresh", label = 'Threshold', 
-                choices = as.list((1:99)/100),
-                selected = .5),
+          ),
+          fluidRow(
               submitButton("Submit")
-            )
           )
         )
       ),

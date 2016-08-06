@@ -78,7 +78,7 @@ if(!is.na(args[1])) {
 # Run once without list detection
 # opMode <- 'runOnce'
 #
-# Exit after modeling notes
+#  Exit after modeling notes
 # opMode <- 'model'
 #
 # Run in test mode (runs once with a bogus order)
@@ -103,22 +103,33 @@ source('scripts/zip.R')
 info(log,'Loading model')
 load('data/model.rda')
 
+# Show start times if opMode is schedule
+if(opMode=='schedule') {
+  for (time in startTimes) {
+    info(log,paste('Configured start time:',time,'PDT'))
+  }
+}
+
 # Start continous loop
-loopCount <- 0
+showWait=T
 while (1) {
   
-  # On initial loop, log schedule start times
-  if (loopCount == 0) {
-    if(opMode=='schedule') {
-      for (time in startTimes) {
-        info(log,paste('Configured start time:',time,'PDT'))
-      }
+  # Show waiting status once when waiting
+  if(opMode=='schedule') {
+    if(showWait) {
       info(log,'Waiting for next scheduled start time ...')
+      showWait=F
     }
   }
 
   # Start system only at given start times (1 minute prior) or if running tests
   if ((hmMin() %in% startTimes & opMode=='schedule') | opMode != 'schedule') {
+    
+    # Show wait status on next iteration
+    showWait=T
+    
+    info(log,'Starting process ...')
+    
         
     # Read log file (connection)
     closeAllConnections()
@@ -138,8 +149,13 @@ while (1) {
     source('scripts/noteCount.R')
     
     # Start list detection only in schedule mode
+    apiTimeStart <- proc.time()[3]
     source('scripts/listDetect.R')
 
+    # Time markers
+    apiTimeElapse <- proc.time()[3] - apiTimeStart
+    startTime <- proc.time()
+    
     # If test mode, load old notes to model.  Order will be placed later on with saved resultsOrder.rda
     if (opMode == 'test') {  
       listTime=with_tz(now(),"America/Los_Angeles")
@@ -152,9 +168,7 @@ while (1) {
     }
     
     info(log,'Modeling available notes')
-    # Record start of modeling time
-    startModelTime <- proc.time()
-    
+
     # Add zip code data
     loans <- merge(x=loans,y=zip,by="addrZip",all.x=TRUE)
     
@@ -169,10 +183,7 @@ while (1) {
     # Add model probability to each loan  
     loans$model <- predict(xgbModel, data.matrix(data.frame(predict(dmy, newdata=loans[,featureNames]))), missing=NA)
 
-    # Record start time of selection process per user
-    elapsedModelTime <- round(proc.time() - startModelTime[3],2)
-    startTime <- proc.time()
-
+    # End if opMode is model
     if (opMode == 'model') {
       info(log, 'Model complete')
       stop()
@@ -187,9 +198,6 @@ while (1) {
         
         # Set order sent flag
         users[[i]]$orderSent <<- 'no'
-        
-        # Record start time of filter process
-        users[[i]]$startFilterTime <- proc.time()
         
         # Verify we have cash available for user
         if(is.null(users[[i]]$pre$cash) | length(users[[i]]$pre$cash) == 0 | ! is.numeric(users[[i]]$pre$cash)) {
@@ -331,8 +339,7 @@ while (1) {
         users[[i]]$orderJSON <- toJSON(users[[i]]$order,auto_unbox=TRUE)
 
         # Time markers
-        users[[i]]$endFilterTime <- proc.time()
-        users[[i]]$elapsedProcTime <<- round((users[[i]]$endFilterTime - startTime + elapsedModelTime)[3],2)
+        users[[i]]$elapsedProcTime <<- round((proc.time() - startTime)[3],2)
         users[[i]]$startOrderTime <- proc.time()
 
         # Order notes
@@ -376,7 +383,7 @@ while (1) {
 
         # Time markers
         users[[i]]$elapsedOrderTime <<- round((proc.time() - users[[i]]$startOrderTime)[3],2)
-        users[[i]]$elapsedTotalTime <<- users[[i]]$elapsedProcTime + users[[i]]$elapsedOrderTime
+        users[[i]]$elapsedTotalTime <<- users[[i]]$elapsedProcTime + users[[i]]$elapsedOrderTime + apiTimeElapse
         
         info(log,paste('User (',users[[i]]$name,') - Order submitted',sep=""))
         
@@ -413,24 +420,19 @@ while (1) {
     # Shutdown server after 1 execution (Experimental)
     if (shutdown) system(shutdownCmd)
     
+    # Sleep if in schedule mode to prevent start overlap
     if(opMode=='schedule') {
-      # Sleep just to make sure it doesn't finish too soon to start again in startTimes
       Sys.sleep(60-startSec)
-      info(log,'Waiting for next scheduled start time ...')
     }
     
   } else {
     # Sleep between checking startTimes
     Sys.sleep(5)
     
-    # Increment loopCount
-    loopCount <- loopCount+1
-    
     # Load configuration if checksums are different or new number of accounts
     if (any(md5sum(sort(c(files,config)))!=checkSums) | length(files) != length(list.files(path="store", pattern="*.acc", full.names=T, recursive=FALSE))) {
       info(log,'Configuration change detected.  Reloading ...')
       source('scripts/load.R')
-      loopCount <- 0
     }
 
     

@@ -25,7 +25,11 @@ if ( opMode == 'schedule') {
     }
     if ( ! grepl("pubRec",startJson) ) {
       warn(log,paste('Unable to obtain initial note count (Invalid API Response). Attempt: ',attempt,sep=""))
-      warn(log,paste("API Response: ", substr(startJson, start=1, stop=50),"...",sep=''))
+      if(nchar(startJson)<=50) {
+        warn(log,paste("API Response: ", startJson,sep=''))
+      } else {
+        warn(log,paste("API Response: ", substr(startJson, start=1, stop=50)," ...",sep=''))
+      }
       next
     }
     prevIds <- fromJSON(startJson)$loans$id
@@ -40,27 +44,31 @@ if ( opMode == 'schedule') {
 
   # List detection
   list=FALSE
-  # Set default apiTime
-  apiTimeStart <- proc.time()[3]
   num <- maxNoteCount
 
+  iter <- 0
   for (cnt in 1:num) {
     # Loop to wait 1 second between API calls
     while (TRUE) {
       if(proc.time()[3] > apiTimeStart+1) { 
         apiTimeStart <- proc.time()[3]
         newJson <- gURL(urlLoanList,users[[i]]$token)
-        apiTimeElapse <- proc.time()[3] - apiTimeStart
         break
       }
     }
+    
+
     if ( nchar(gsub("[[:blank:]]", "", newJson)) <= 1) {
       warn(log,paste("List detection (",cnt," of ",num,") - Empty API Response ",sep=''))
       next
     }
     if ( ! grepl("pubRec",newJson) ) {
       warn(log,paste("List detection (",cnt," of ",num,") - Invalid API response",sep=''))
-      warn(log,paste("API Response: ", substr(newJson, start=1, stop=50),"...",sep=''))
+      if(nchar(newJson)<=50) {
+        warn(log,paste("API Response: ", newJson,sep=''))
+      } else {
+        warn(log,paste("API Response: ", substr(newJson, start=1, stop=50)," ...",sep=''))
+      }
       next
     }
     loans = fromJSON(newJson)$loans
@@ -76,11 +84,18 @@ if ( opMode == 'schedule') {
     if ( newNoteCount > numNotesThresh ) {
       list=TRUE
       listTime=with_tz(now(),"America/Los_Angeles")
-      info(log,paste("List detected - New note count: ",newNoteCount,sep=''))
+      info(log,paste("List detected (New notes > ",numNotesThresh,") - New notes: ",newNoteCount,sep=''))
       break
-    } else {
-      info(log,paste("Detection ",cnt," of ",num," (New note count: ",newNoteCount,"; Requires: ", numNotesThresh,")",sep=''))
-    }
+    } else if (newNoteCount >= 1) {
+      iter <- iter + 1
+      if (iter>1) {
+        list=TRUE
+        listTime=with_tz(now(),"America/Los_Angeles")
+        info(log,paste("List detected (Consecutive new notes) - New notes: ",newNoteCount,sep=''))
+        break
+      }
+    } 
+    info(log,paste("Detection ",cnt," of ",num," (New notes: ",newNoteCount,")",sep=''))
   }
 
   # Only continue if note list detected

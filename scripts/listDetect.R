@@ -3,12 +3,12 @@ if ( opMode == 'schedule') {
   
   # Wait until X seconds before list to begin polling LC API
   # Check to make sure we are starting before scheduled start time (should never happen but checking anyways)
-  if (!hmMin() %in% startTimes ) { 
+  if (!hmMin() %in% startTimes ) {
     warn(log,'List detection cannot start after scheduled start time')
     next
   }
   # Sleep until just prior to start time
-  startSec = 45
+  startSec = 55
   if (second(nowPST())<startSec) info(log,'Waiting for list detection ...')
   while(second(nowPST())<startSec) {
     Sys.sleep(1)
@@ -37,7 +37,7 @@ if ( opMode == 'schedule') {
       warn(log,paste("List detection (",cnt," of ",num,") - Empty API Response ",sep=''))
       next
     }
-    if ( ! grepl("pubRec",newJson) ) {
+    if ( ! grepl("asOfDate",newJson) ) {
       warn(log,paste("List detection (",cnt," of ",num,") - Invalid API response",sep=''))
       if(nchar(newJson)<=50) {
         warn(log,paste("API Response: ", newJson,sep=''))
@@ -47,10 +47,6 @@ if ( opMode == 'schedule') {
       next
     }
     loans = fromJSON(newJson)$loans
-    if ( ! nrow(loans) ) {
-        warn(log,paste("List detection (",cnt," of ",num,") - API Conversion Error",sep=''))
-        next
-    }
     nids <- loans$id
     newIds <- nids[! nids %in% prevIds]
     newNoteCount <- length(newIds)

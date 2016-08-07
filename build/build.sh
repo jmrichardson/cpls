@@ -2,7 +2,7 @@
 
 dir=`pwd`
 base=`basename $dir`
-if [ base != 'build' ]; then
+if [ "$base" != 'build' ]; then
   echo "Err: Must be in build directory"
   exit
 fi

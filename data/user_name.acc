@@ -27,13 +27,13 @@ lc$amountPerNote = 25
 lc$sortField = 'model'
 
 # Maximum grade allocation (comment out for no grade allocation)
-lc$gradeAllocation = c("A" = 0, "B" = .20, "C" = .60, "D" = .60, "E" = .1, "F" = 0, "G" = 0)
+# lc$gradeAllocation = c("A" = 0, "B" = .20, "C" = .60, "D" = .60, "E" = .1, "F" = 0, "G" = 0)
 
 # Maximum term allocation (comment out for no term allocation)
-lc$termAllocation = c("36" = .60, "60" = .60)
+# lc$termAllocation = c("36" = .60, "60" = .60)
 
 # Report criteria (max 6 fields)
-lc$reportCriteria=c('id','intRate','grade','purpose','inqLast6Mths','model')
+lc$reportCriteria=c('id','intRate','grade','purpose','model')
 
 # Filter Criteria
 lc$filterCriteria <- function (x)  {

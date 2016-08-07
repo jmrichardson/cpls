@@ -420,9 +420,6 @@ while (1) {
       break
     }
     
-    # Shutdown server after 1 execution (Experimental)
-    if (shutdown) system(shutdownCmd)
-    
     # Sleep if in schedule mode to prevent start overlap
     if(opMode=='schedule') {
       Sys.sleep(60-startSec)

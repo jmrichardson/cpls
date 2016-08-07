@@ -16,6 +16,11 @@ users <- list()
 ls <- read.csv('data/loans_sample.csv')
 files <- sort(list.files(path="store", pattern="*.acc", full.names=T, recursive=FALSE))
 for (file in files) {
+  
+  if (file == 'user_name.acc') {
+    err('Default file "store/user_name.acc" exists')
+  }
+  
   lc=list()
   source(file)
   checkUser(file,lc)

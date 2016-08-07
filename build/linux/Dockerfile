@@ -14,7 +14,7 @@ RUN gpg -a --export E084DAB9 | apt-key add -
 # Update and install ubunutu packages
 RUN apt-get update && apt-get -y upgrade
 RUN apt-get -y install r-base default-jre default-jdk git wget curl unzip ntp sudo
-RUN apt-get -y install openssl libssl-dev libcurl4-openssl-dev
+RUN apt-get -y install openssl libssl-dev libcurl4-openssl-dev vim
 
 # Install R packages
 RUN echo 'install.packages(c("RCurl", "jsonlite", "dplyr", "stringr", "lubridate", "log4r", "parallel", "plotrix", "base64", "ggplot2"), repos="http://cran.us.r-project.org", dependencies=TRUE)' > /tmp/packages.R \ && Rscript /tmp/packages.R
@@ -33,9 +33,9 @@ RUN usermod -a -G sudo user
 WORKDIR $HOME
 USER user
 
-# Clone GitHub cpls repository
+# Copy source code into container
 RUN mkdir /home/user/cpls
-COPY . /home/user/cpls
+COPY ../../. /home/user/cpls
 USER root
 RUN chown -R user:user $HOME
 USER user

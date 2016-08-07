@@ -65,7 +65,6 @@ gURL <- function(url,token) {
 cores = detectCores()
 if (.Platform$OS.type == 'windows') {
   cores = 1
-  shutdownCmd = "shutdown /t 0 /s"
 }
   
 
@@ -95,7 +94,7 @@ options(RCurlOptions = list(verbose = FALSE,
 # Check config.R
 checkConfig <- function() {
   parms <- c('startTimes','maxNoteCount','numNotesThresh','mailFrom','host',
-    'port','userName','userPasswd','ssl','shutdown','shutdownCmd')
+    'port','userName','userPasswd','ssl')
   for (parm in parms) {
     if(!exists(parm)){
       err(paste("Config.R parameter does not exist:",parm))

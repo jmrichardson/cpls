@@ -35,7 +35,7 @@ USER user
 
 # Copy source code into container
 RUN mkdir /home/user/cpls
-COPY ../../. /home/user/cpls
+COPY . /home/user/cpls
 USER root
 RUN chown -R user:user $HOME
 USER user

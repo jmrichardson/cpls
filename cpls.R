@@ -148,24 +148,27 @@ while (1) {
     # Get platform note count    
     source('scripts/noteCount.R')
     
+    # Get previous ids and note count
+    source('scripts/prevCount.R')
+    
     # Start list detection only in schedule mode
     apiTimeStart <- proc.time()[3]
     source('scripts/listDetect.R')
 
-    # Time markers
-    apiTimeElapse <- proc.time()[3] - apiTimeStart
-    startTime <- proc.time()
-    
     # If test mode, load old notes to model.  Order will be placed later on with saved resultsOrder.rda
     if (opMode == 'test') {  
       listTime=with_tz(now(),"America/Los_Angeles")
-      newNoteCount=0
-      apiTimeElapse=0
+      newNoteCount=1
+      apiTimeElapse=4
       loans <- read.csv('data/loans_sample.csv')
     } else if (opMode == 'model') {
       newJson <- gURL(urlLoanListAll,users[[i]]$token)
       loans = fromJSON(newJson)$loans
     }
+    
+    # Time markers
+    apiTimeElapse <- proc.time()[3] - apiTimeStart
+    startTime <- proc.time()
     
     info(log,'Modeling available notes')
 

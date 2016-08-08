@@ -16,6 +16,9 @@ RUN apt-get update && apt-get -y upgrade
 RUN apt-get -y install r-base default-jre default-jdk git wget curl unzip ntp sudo
 RUN apt-get -y install openssl libssl-dev libcurl4-openssl-dev vim
 
+# Update java
+RUN sudo R CMD javareconf
+
 # Install R packages
 RUN echo 'install.packages(c("RCurl", "jsonlite", "dplyr", "stringr", "lubridate", "log4r", "parallel", "plotrix", "base64", "ggplot2"), repos="http://cran.us.r-project.org", dependencies=TRUE)' > /tmp/packages.R \ && Rscript /tmp/packages.R
 RUN echo 'install.packages(c("xtable","modeltools","mailR","tools","caret","xgboost","NMOF","snow","shiny","plotly"), repos="http://cran.us.r-project.org", dependencies=TRUE)' > /tmp/packages.R \ && Rscript /tmp/packages.R

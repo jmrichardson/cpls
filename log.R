@@ -65,7 +65,13 @@ server <- function(input, output, session) {
     log
   },options = list(pageLength = 100,
     lengthMenu = c(100, 250, 1000),
-    order = c(0,'desc')
+    order = c(0,'desc'),
+    autoWidth = TRUE,
+    columnDefs = list(
+      list(width = "140px", targets = 0),
+      list(width = "60px", targets = 1)
+    )
+    
   ))
 }
 shinyApp(ui = ui, server = server)

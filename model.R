@@ -70,6 +70,8 @@ stats = subset(stats,(loan_status=='Fully Paid' | loan_status=='Charged Off'))
 label <- ifelse(stats$loan_status=='Fully Paid',1,0)
 
 # Remove unnecessary fields
+stats$model <- NULL
+stats$label <- NULL
 stats$id <- NULL
 stats$member_id <- NULL
 stats$funded_amnt <- NULL
@@ -110,7 +112,6 @@ stats$loan_status <- NULL
 stats$memberId <- NULL
 stats$fundedAmount <- NULL
 stats$last_fico_range_low <- NULL
-
 
 # Remove LC influenced fields - All of these values are LC dependent and changes over time
 stats$intRate <- NULL
@@ -239,7 +240,14 @@ AUROC(actual, pred)
 
 # Save model and train/test data
 save(xgbModel,results,params,inTrain,featureNames,dmy, file='data/model.rda')
-save(stats, file='data/modelStats.rda')
+
+# Model stats data
+load('data/stats.rda')
+stats$label <- as.factor(ifelse(stats$loan_status=='Fully Paid',1,0))
+stats$model <- predict(xgbModel, data.matrix(predict(dmy, newdata=stats[,featureNames])), missing=NA)
+
+# Save stats
+save(stats, file='data/stats.rda')
 
 stop()
 

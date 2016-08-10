@@ -10,6 +10,7 @@ library('xgboost')
 library('dplyr')
 library('arules')
 library('smbinning')
+library('lubridate')
 
 # Seed for model comparisons
 set.seed(1)
@@ -54,11 +55,8 @@ if(!dir.exists(dir)) {
 }
 
 # Load data
-if (!exists('test')) { 
-  # Load saved model with stats
-  load('data/modelStats.rda')
-  statsModel <- stats
-  
+if (!exists('stats')) { 
+
   # Load model and stats data
   load('data/model.rda')
   load('data/stats.rda')
@@ -66,11 +64,11 @@ if (!exists('test')) {
   # Model only complete notes
   stats = subset(stats,(loan_status=='Fully Paid' | loan_status=='Charged Off'))
   
-  # Quick error checking
-  if ( nrow(stats) != nrow(statsModel)) stop('Row count not the same')
+  # Observation label based on loan_status
+  stats$label <- ifelse(stats$loan_status=='Fully Paid',1,0)
   
-  # Is note mature?
-  stats$mature <- ifelse( stats$issue_d %m+% months(stats$term) <= as.Date(now()),TRUE,FALSE)
+  # Maturity
+  stats$mature <- ifelse(stats$issue_d %m+% months(stats$term) <= as.Date(now()),TRUE,FALSE)
   
   stats$id <- NULL
   stats$member_id <- NULL
@@ -106,63 +104,49 @@ if (!exists('test')) {
   stats$ficoRangeHigh <- NULL
   stats$pymnt_plan <- NULL
   stats$last_pymnt_d <- NULL
-  stats$loan_status <- NULL
+  # stats$loan_status <- NULL
   stats$memberId <- NULL
   stats$fundedAmount <- NULL
-  stats$last_fico_range_low <- NULL
+
 
   # Get model prediction
-  stats$label <- as.factor(statsModel$label)
-  stats$model <- predict(xgbModel, data.matrix(predict(dmy, newdata=test[,featureNames])), missing=NA)
+  stats$model <- predict(xgbModel, data.matrix(predict(dmy, newdata=stats[,featureNames])), missing=NA)
   
+  # Assume prediction class is always fully paid
+  stats$class <- as.factor('Fully Paid')
+  levels(stats$class) <- c('Fully Paid','Charged Off')
+  stats$class <- factor(stats$class,c('Charged Off','Fully Paid'))
+  stats$loan_status <- droplevels(stats$loan_status)
 
-  # Only use test set (data model has not seen)
-  test <- stats[-inTrain,]
-  
-  # Obtain model predictions
-  test$model <- predict(xgbModel, data.matrix(predict(dmy, newdata=test[,featureNames])), missing=NA)
-  
-  # Assume all test observations are fully paid
-  test$class = 1
-  test$class=as.factor(test$class)
-  
-  # Release memory
-  # rm(stats)
-  # rm(statsModel)
-  
 }
-
-
-
 
 server <- function(input, output, session) { 
   
   # Filter test notes using filter text given
   data <- reactive ({
-    if (input$filter != '') {
-      test %>%
-        filter_(input$filter)
+    filterStr <- input$filter
+    df <- if (filterStr != '') {
+      stats %>%
+        filter_(filterStr)
     } else {
-      test
+      stats
     }
+    # if (input$test == TRUE) {
+    #   df=df[-inTrain]
+    # }
+    df
   })
 
 
-  # Confusion matrix
-  cm <- reactive({
-    # Obtain predicted class based on probability and optimal cutoff
-    caret::confusionMatrix(relevel(factor(data()$class,"1")),relevel(factor(data()$label),'1'))
-  })
-  
-  
+
   output$test <- renderPrint({
     nrow(data())
   })
-  output$plotROC <- renderPlot({
-    plotROC(actuals=data()$label,predictedScores=data()$model)
-  })
+  # output$plotROC <- renderPlot({
+  #   plotROC(actuals=data()$label,predictedScores=data()$model)
+  # })
   output$cm <- renderPrint({
-    cm()
+    caret::confusionMatrix(data()$class,data()$loan_status,'Fully Paid')
   })
 }
 
@@ -215,14 +199,14 @@ margin-top: 10px;
         tabsetPanel(type = "tabs", 
           tabPanel("Model",
             fluidRow(
-              verbatimTextOutput ("cm")
-            ),
-            fluidRow(
-              plotOutput("plotROC")
-            ),
-            fluidRow(
               verbatimTextOutput ("test")
+            ),
+            fluidRow(
+              verbatimTextOutput ("cm")
             )
+            # fluidRow(
+            #   plotOutput("plotROC")
+            # )
           ), 
           tabPanel("Filter Builder", verbatimTextOutput("tesasdft")),
           tabPanel("Loan Statistics", verbatimTextOutput("tesadfsdft"))

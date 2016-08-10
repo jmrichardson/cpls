@@ -1,4 +1,4 @@
-FROM armv7/armhf-ubuntu
+FROM armv7/armhf-ubuntu:14.04.3
 
 # Contact Information
 MAINTAINER John Richardson contact@peerlendingserver.com

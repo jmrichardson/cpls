@@ -243,8 +243,17 @@ save(xgbModel,results,params,inTrain,featureNames,dmy, file='data/model.rda')
 
 # Model stats data
 load('data/stats.rda')
-stats$label <- as.factor(ifelse(stats$loan_status=='Fully Paid',1,0))
+stats$label <- ifelse(stats$loan_status=='Fully Paid',1,0)
 stats$model <- predict(xgbModel, data.matrix(predict(dmy, newdata=stats[,featureNames])), missing=NA)
+
+# Maturity
+stats$mature <- ifelse(stats$issue_d %m+% months(stats$term) <= as.Date(now()),TRUE,FALSE)
+
+# Set class as fully paid for all notes (used in tool)
+stats$class <- as.factor('Fully Paid')
+levels(stats$class) <- c('Fully Paid','Charged Off')
+stats$class <- factor(stats$class,c('Charged Off','Fully Paid'))
+stats$loan_status <- droplevels(stats$loan_status)
 
 # Save stats
 save(stats, file='data/stats.rda')

@@ -69,8 +69,8 @@ if (!exists('test')) {
   # Quick error checking
   if ( nrow(stats) != nrow(statsModel)) stop('Row count not the same')
   
-  # Is note mature?
-  stats$mature <- ifelse( stats$issue_d %m+% months(stats$term) <= as.Date(now()),TRUE,FALSE)
+  # # Is note mature?
+  # stats$mature <- ifelse( stats$issue_d %m+% months(stats$term) <= as.Date(now()),TRUE,FALSE)
   
   stats$id <- NULL
   stats$member_id <- NULL
@@ -112,9 +112,9 @@ if (!exists('test')) {
   stats$last_fico_range_low <- NULL
 
   # Get model prediction
-  stats$label <- as.factor(statsModel$label)
-  stats$model <- predict(xgbModel, data.matrix(predict(dmy, newdata=test[,featureNames])), missing=NA)
-  
+  # stats$label <- as.factor(statsModel$label)
+  # stats$model <- predict(xgbModel, data.matrix(predict(dmy, newdata=test[,featureNames])), missing=NA)
+  # 
 
   # Only use test set (data model has not seen)
   test <- stats[-inTrain,]

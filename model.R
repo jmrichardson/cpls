@@ -270,7 +270,7 @@ stats$total_int=stats$remPrncp + stats$total_pymnt - stats$fundedAmount
 # Obtain fees from LC
 stats$fees= stats$total_pymnt * .01
 
-# Principal paid by investor (not borrower) to obtain the total received interest
+# Effective Principal by investor (not borrower) to obtain the total received interest
 # P=I/r for a simple interest loan
 # Based on the interest received and rate of loan, you can obtain the amount of principal paid
 # to obtain the interest received.  Cannot use all of the origination principal because all of the 
@@ -294,11 +294,20 @@ stats$loss=round(ifelse ( stats$loan_status == 'Charged Off', stats$remPrncp,
 # Subtract from the top because you need to deduct from interest received.
 denom <- stats$prnPaid + stats$loss
 # If the estimated principal paid + loss is ==0, then no ROI
-# stats$ROI <- ifelse(denom == 0,  0,
-#   round(( ( stats$total_int - stats$fees - stats$loss ) / ( denom ) ) * 100,2))
+# stats$ROI <- round(ifelse(denom == 0,  0,
+#   ( stats$total_int - stats$loss ) / ( denom ) - .01 ) * 100,2)
 stats$ROI <- ifelse(denom == 0,  0,
-  round(( ( stats$total_int - stats$loss ) / ( denom ) ) * 100,2)-1)
-stats$ROI <- ifelse(stats$ROI <= -100, -100, stats$ROI)
+  ( stats$total_int - stats$fees - stats$loss ) / ( denom ) )
+
+
+
+stats$ROI <-ifelse(stats$loan_status == 'Fully Paid' & 
+    (stats$fundedAmount-stats$fees-stats$loss)/(stats$fundedAmount+stats$loss) > stats$ROI,
+    (stats$fundedAmount-stats$fees-stats$loss)/(stats$fundedAmount+stats$loss),
+    stats$ROI)
+
+
+# stats$ROI <- ifelse(stats$ROI <= -100, -100, stats$ROI)
 
 # Projected ROI
 stats$projROI = round(ifelse(stats$loan_status == 'Current' | stats$loan_status == 'Issued', 

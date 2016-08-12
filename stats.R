@@ -65,6 +65,7 @@ stats2=read.csv(paste(statsDir,'LoanStats3b_securev1.csv',sep='/'),header=TRUE,s
 stats3=read.csv(paste(statsDir,'LoanStats3c_securev1.csv',sep='/'),header=TRUE,skip=1)
 stats4=read.csv(paste(statsDir,'LoanStats3d_securev1.csv',sep='/'),header=TRUE,skip=1)
 stats5=read.csv(paste(statsDir,'LoanStats_securev1_2016Q1.csv',sep='/'),header=TRUE,skip=1)
+stats6=read.csv(paste(statsDir,'LoanStats_securev1_2016Q2.csv',sep='/'),header=TRUE,skip=1)
 
 # Update field name
 names(stats1)[names(stats1)=="is_inc_v"] <- "verification_status"
@@ -82,9 +83,7 @@ names(stats2)[names(stats2)=="is_inc_v"] <- "verification_status"
 # stats5[,57:200] <- list(NULL)
 
 # Combine all LC stats into one stats frame
-# stats=rbind(stats1,stats2,stats3,stats4,stats5)
-
-stats <- rbind.fill(stats1,stats2,stats3,stats4,stats5)
+stats <- rbind.fill(stats1,stats2,stats3,stats4,stats5,stats6)
 
 # Remove notes without loan amount
 stats <- stats[!is.na(stats$loan_amnt),]
@@ -189,6 +188,7 @@ stats$annualInc=round(stats$annualInc)
 stats$initialListStatus=as.factor(toupper(stats$initialListStatus))
 stats$revolBal <- as.numeric(stats$revolBal)
 stats$issue_d<-as.Date(dateConv(dmy(paste("01", stats$issue_d, sep = "-"))))
+stats$last_pymnt_d<-as.Date(dateConv(dmy(paste("01", stats$last_pymnt_d, sep = "-"))))
 stats$term <-as.integer(as.character(gsub(" months", "", stats$term)))
 stats$intRate <-as.numeric(as.character(gsub("%", "", stats$intRate)))
 

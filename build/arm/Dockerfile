@@ -1,5 +1,5 @@
-FROM armv7/armhf-ubuntu:14.04.3
-# FROM armv7/armhf-ubuntu
+FROM armv7/armhf-ubuntu
+# FROM armv7/armhf-ubuntu:14.04.3
 
 # Contact Information
 MAINTAINER John Richardson contact@peerlendingserver.com
@@ -11,7 +11,7 @@ LABEL Description="Command Line Peer Lending Server"
 ENV DEBIAN_FRONTEND noninteractive
 
 # Install R and Required Packages
-RUN sh -c 'echo "deb http://mirror.vorboss.net/ubuntu-archive trusty main universe" >> /etc/apt/sources.list'
+RUN sh -c 'echo "deb http://mirror.vorboss.net/ubuntu-archive xenial main universe" >> /etc/apt/sources.list'
 
 # Update and install ubunutu packages
 RUN apt-get update && apt-get -y upgrade

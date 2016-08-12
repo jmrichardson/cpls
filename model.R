@@ -253,7 +253,84 @@ stats$mature <- ifelse(stats$issue_d %m+% months(stats$term) <= as.Date(now()),T
 stats$class <- as.factor('Fully Paid')
 levels(stats$class) <- c('Fully Paid','Charged Off')
 stats$class <- factor(stats$class,c('Charged Off','Fully Paid'))
-stats$loan_status <- droplevels(stats$loan_status)
+
+
+
+
+
+
+
+
+
+
+### Add ROI data ###
+
+# Get age of each note
+stats$ageDays=as.numeric(difftime(now(),stats$issue_d,units="days"))
+stats$ageMths=round(stats$ageDays/30)
+
+# Obtain remaining principal
+stats$remPrncp=stats$funded_amnt-stats$total_rec_prncp
+
+# Obtain total interest paid by borrower
+stats$total_int=stats$remPrncp + stats$total_pymnt - stats$funded_amnt
+
+# Obtain fees from LC
+stats$fees= stats$total_pymnt * .01
+
+# Principal paid by investor (not borrower) to obtain the total received interest
+# P=I/r for a simple interest loan
+# Based on the interest received and rate of loan, you can obtain the amount of principal paid
+# to obtain the interest received.  Cannot use all of the origination principal because all of the 
+# interest has not been paid on it for current stats.
+stats$prnPaid = stats$total_int/(stats$intRate/100)
+
+# other Income
+stats$otherIncome = stats$recoveries + stats$collection_recovery_fee
+
+# Set loss to remaining principal * loss factor
+stats$loss=round(ifelse ( stats$loan_status == 'Charged_Off', stats$remPrncp,
+  ifelse ( stats$loan_status == 'Default', stats$remPrncp * .98,
+    ifelse ( stats$loan_status == 'Late_(31-120_days)', stats$remPrncp * .89,
+      ifelse ( stats$loan_status == 'Late_(16-30_days)', stats$remPrncp * .57,
+        ifelse ( stats$loan_status == 'In_Grace_Period', stats$remPrncp  * .25, 0))))),2)
+
+
+# ROI
+# loss is 0 for current stats and fully paid, therefore just I-fees/prncp
+# loss is remaining principal, so I-fees-loss / princ + loss <----- must add loss on bottom because
+# on the bottom is the total cost of the investment (principal paid up to this point and loss)
+# Subtract from the top because you need to deduct from interest received.
+stats$ROI = round(( ( stats$total_int - stats$fees - stats$loss ) / ( stats$prnPaid + stats$loss ) ) * 100,2)
+stats=subset(stats, !is.na(ROI))
+
+# Projected ROI
+# stats$projROI = round(ifelse(stats$loan_status == 'Current' | stats$loan_status == 'Issued', 
+#   (stats$model-4)/100 * stats$ROI,stats$ROI),2)
+# -points for training set bias
+stats$projROI = round(ifelse(stats$loan_status == 'Current' | stats$loan_status == 'Issued', 
+  (stats$model-15)/100 * (stats$intRate - 1),
+  stats$ROI),2)
+
+
+# Save notes
+save(notes,file='dev/notesROI.rda')
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 # Save stats
 save(stats, file='data/stats.rda')

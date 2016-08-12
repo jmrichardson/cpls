@@ -63,12 +63,7 @@ if (!exists('stats')) {
   
   # Model only complete notes
   stats = subset(stats,(loan_status=='Fully Paid' | loan_status=='Charged Off'))
-  
-  # Observation label based on loan_status
-  stats$label <- ifelse(stats$loan_status=='Fully Paid',1,0)
-  
-  # Maturity
-  stats$mature <- ifelse(stats$issue_d %m+% months(stats$term) <= as.Date(now()),TRUE,FALSE)
+  stats$loan_status <- droplevels(stats$loan_status)
   
   stats$id <- NULL
   stats$member_id <- NULL
@@ -104,19 +99,8 @@ if (!exists('stats')) {
   stats$ficoRangeHigh <- NULL
   stats$pymnt_plan <- NULL
   stats$last_pymnt_d <- NULL
-  # stats$loan_status <- NULL
   stats$memberId <- NULL
   stats$fundedAmount <- NULL
-
-
-  # Get model prediction
-  stats$model <- predict(xgbModel, data.matrix(predict(dmy, newdata=stats[,featureNames])), missing=NA)
-  
-  # Assume prediction class is always fully paid
-  stats$class <- as.factor('Fully Paid')
-  levels(stats$class) <- c('Fully Paid','Charged Off')
-  stats$class <- factor(stats$class,c('Charged Off','Fully Paid'))
-  stats$loan_status <- droplevels(stats$loan_status)
 
 }
 

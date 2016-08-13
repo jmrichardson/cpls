@@ -23,7 +23,6 @@ RUN apt-get -y install r-base
 RUN apt-get -y install git wget curl unzip ntp sudo
 RUN apt-get -y install openssl libssl-dev libcurl4-openssl-dev vim
 
-
 # Update java
 RUN sudo R CMD javareconf
 

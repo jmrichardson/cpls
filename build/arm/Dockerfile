@@ -7,7 +7,7 @@ MAINTAINER John Richardson contact@peerlendingserver.com
 # Description Label
 LABEL Description="Command Line Peer Lending Server"
 
-# Install R and Required Packages
+# Fix frontend interaction
 ENV DEBIAN_FRONTEND noninteractive
 
 # Update apt sources

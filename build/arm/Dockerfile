@@ -10,14 +10,19 @@ LABEL Description="Command Line Peer Lending Server"
 # Install R and Required Packages
 ENV DEBIAN_FRONTEND noninteractive
 
-# Install R and Required Packages
-RUN sh -c 'echo "deb http://mirror.vorboss.net/ubuntu-archive xenial main universe" >> /etc/apt/sources.list'
+# Update apt sources
+RUN apt-get update
+RUN apt-get install -y software-properties-common
+RUN add-apt-repository -y ppa:openjdk-r/ppa
+RUN add-apt-repository -y 'deb http://mirror.vorboss.net/ubuntu-archive xenial main universe'
 
 # Update and install ubunutu packages
 RUN apt-get update && apt-get -y upgrade
+RUN apt-get -y install openjdk-7-jre
 RUN apt-get -y install r-base
-RUN apt-get -y install default-jre default-jdk git wget curl unzip ntp sudo
+RUN apt-get -y install git wget curl unzip ntp sudo
 RUN apt-get -y install openssl libssl-dev libcurl4-openssl-dev vim
+
 
 # Update java
 RUN sudo R CMD javareconf

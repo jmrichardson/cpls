@@ -202,7 +202,7 @@ stats$amountTermIncomeRatio=stats$amountTerm/(stats$annualInc/12)
 stats$revolBalAnnualIncRatio=stats$revolBal/stats$annualInc
 
 # Add in zip code stats
-source('zip.R')
+source('scripts/zip.R')
 stats <- merge(x=stats,y=zip,by="addrZip",all.x=TRUE)
 
 # # Add in FRED stats

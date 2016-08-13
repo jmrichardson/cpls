@@ -241,13 +241,16 @@ AUROC(actual, pred)
 # Save model and train/test data
 save(xgbModel,results,params,inTrain,featureNames,dmy, file='data/model.rda')
 
+stop()
+
+
 # Model stats data
 load('data/stats.rda')
 stats$label <- ifelse(stats$loan_status=='Fully Paid',1,0)
 stats$model <- predict(xgbModel, data.matrix(predict(dmy, newdata=stats[,featureNames])), missing=NA)
 
 # Maturity
-stats$mature <- ifelse(stats$issue_d %m+% months(stats$term) <= as.Date(now()),TRUE,FALSE)
+stats$complete <- ifelse(stats$issue_d %m+% months(stats$term) <= as.Date(now()),TRUE,FALSE)
 
 # Set class as fully paid for all notes (used in tool)
 stats$class <- as.factor('Fully Paid')
@@ -257,7 +260,22 @@ stats$class <- factor(stats$class,c('Charged Off','Fully Paid'))
 
 ### Add ROI data ###
 
-# Get age of each note
+# Get duration of each note
+# End of Loan for fully paid is last_pymnt_d
+# End of Loan for charged off is last_pymnt_d + 5 months
+# End of Loan for active loans is current day (current age)
+stats$eolDays <- ifelse(stats$loan_status == 'Fully Paid',
+  as.numeric(difftime(stats$last_pymnt_d,stats$issue_d,units="days")),
+  ifelse(stats$loan_status == 'Charged Off',
+    ifelse(is.na(stats$last_pymnt_d),
+      150,
+      as.numeric(difftime(stats$last_pymnt_d + months(5),stats$issue_d,units="days"))),
+    as.numeric(difftime(now(),stats$issue_d,units="days"))
+  ))
+stats$eolMths=round(stats$eolDays/30)
+stats$eolMths <- ifelse(stats$eolMths==0,1,stats$eolMths)
+
+# Age of loan based on current day for all loans
 stats$ageDays=as.numeric(difftime(now(),stats$issue_d,units="days"))
 stats$ageMths=round(stats$ageDays/30)
 
@@ -269,6 +287,9 @@ stats$total_int=stats$remPrncp + stats$total_pymnt - stats$fundedAmount
 
 # Obtain fees from LC
 stats$fees= stats$total_pymnt * .01
+
+# Remove loans that have payments but no interest earned
+stats=stats[!stats$total_int==0 & stats$total_pymnt>0,]
 
 # Effective Principal by investor (not borrower) to obtain the total received interest
 # P=I/r for a simple interest loan
@@ -283,31 +304,21 @@ stats$otherIncome = stats$recoveries + stats$collection_recovery_fee
 # Set loss to remaining principal * loss factor
 stats$loss=round(ifelse ( stats$loan_status == 'Charged Off', stats$remPrncp,
   ifelse ( stats$loan_status == 'Default', stats$remPrncp * .98,
-    ifelse ( stats$loan_status == 'Late (31-120 days)', stats$remPrncp * .89,
-      ifelse ( stats$loan_status == 'Late (16-30 days)', stats$remPrncp * .57,
-        ifelse ( stats$loan_status == 'In Grace Period', stats$remPrncp  * .25, 0))))),2)
+    ifelse ( stats$loan_status == 'Late (31-120 days)', stats$remPrncp * .82,
+      ifelse ( stats$loan_status == 'Late (16-30 days)', stats$remPrncp * .59,
+        ifelse ( stats$loan_status == 'In Grace Period', stats$remPrncp  * .27, stats$remPrncp * 0))))),2)
 
 # ROI
-# loss is 0 for current stats and fully paid, therefore just I-fees/prncp
-# loss is remaining principal, so I-fees-loss / princ + loss <----- must add loss on bottom because
-# on the bottom is the total cost of the investment (principal paid up to this point and loss)
-# Subtract from the top because you need to deduct from interest received.
-denom <- stats$prnPaid + stats$loss
-# If the estimated principal paid + loss is ==0, then no ROI
-# stats$ROI <- round(ifelse(denom == 0,  0,
-#   ( stats$total_int - stats$loss ) / ( denom ) - .01 ) * 100,2)
-stats$ROI <- ifelse(denom == 0,  0,
-  ( stats$total_int - stats$fees - stats$loss ) / ( denom ) )
+stats$ROI <- ( stats$total_int + stats$otherIncome - stats$loss ) / ( stats$prnPaid + stats$loss ) * 100
+# Don't annualize loans less than year and complete
+stats$ROI <- ifelse(stats$eolMths<12 & (stats$loan_status=='Fully Paid' | stats$loan_status=='Charged Off'),
+  round(( stats$total_int + stats$otherIncome + stats$total_rec_prncp - stats$fundedAmount - stats$loss ) / ( stats$fundedAmount + stats$loss)*100,2),
+  stats$ROI)
+stats$ROI <- round(stats$ROI - 1,2)
+stats$ROI <- ifelse(stats$ROI <= -100, -100,stats$ROI)
+summary(stats$ROI)
 
 
-
-stats$ROI <-ifelse(stats$loan_status == 'Fully Paid' & 
-    (stats$fundedAmount-stats$fees-stats$loss)/(stats$fundedAmount+stats$loss) > stats$ROI,
-    (stats$fundedAmount-stats$fees-stats$loss)/(stats$fundedAmount+stats$loss),
-    stats$ROI)
-
-
-# stats$ROI <- ifelse(stats$ROI <= -100, -100, stats$ROI)
 
 # Projected ROI
 stats$projROI = round(ifelse(stats$loan_status == 'Current' | stats$loan_status == 'Issued', 
@@ -316,6 +327,8 @@ stats$projROI = round(ifelse(stats$loan_status == 'Current' | stats$loan_status 
 
 # Save stats
 save(stats, file='data/stats.rda')
+
+
 # End
 
 

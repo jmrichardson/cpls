@@ -54,15 +54,19 @@ if(!dir.exists(dir)) {
   setwd(dir)
 }
 
+# Number formatter function
+printNumber <- function(value, digits=0, sep=",", decimal=".") {
+  formatC(value, format = "f", big.mark = sep, digits=digits, decimal.mark=decimal)
+}
+
 # Load data
 if (!exists('stats')) { 
 
   # Load model and stats data
-  load('data/model.rda')
   load('data/stats.rda')
   
   # Model only complete notes
-  stats = subset(stats,(loan_status=='Fully Paid' | loan_status=='Charged Off'))
+  stats = subset(stats,((loan_status=='Fully Paid' | loan_status=='Charged Off') & complete == TRUE))
   stats$loan_status <- droplevels(stats$loan_status)
   
   stats$id <- NULL
@@ -102,6 +106,7 @@ if (!exists('stats')) {
   stats$memberId <- NULL
   stats$fundedAmount <- NULL
 
+  totalNotes <- nrow(stats)
 }
 
 server <- function(input, output, session) { 
@@ -122,10 +127,36 @@ server <- function(input, output, session) {
   })
 
 
-
-  output$test <- renderPrint({
-    nrow(data())
+  
+  output$summary <-renderUI({
+    filteredNotes <- nrow(data())
+    pct <- round(filteredNotes/totalNotes*100,2)
+    roi <- round(mean(data()$ROI),2)
+    fluidRow(
+      wellPanel(
+        fluidRow(
+          column(4,paste('Filtered Notes:',printNumber(filteredNotes))),
+          column(4,paste('Note Count:',printNumber(totalNotes))),
+          column(4,paste('Filtered Percent: ',pct,'%',sep=''))
+        ),
+        fluidRow(
+          column(4,paste('Instant ROI: ',roi,'%',sep='')),
+          column(4,paste('Projected ROI: ','proi','%',sep='')),
+          column(4,paste('Age Months:','age'))
+        ),
+        fluidRow(
+          column(4,paste('Default Percent: ','def','%',sep='')),
+          column(4,paste('Late 16: ','l16','%',sep='')),
+          column(4,paste('Late 31: ','l31','%',sep=''))
+        )
+      )       
+    )
+    
   })
+
+  # output$noteCount <- renderText({
+  #   nrow(data())
+  # })
   # output$plotROC <- renderPlot({
   #   plotROC(actuals=data()$label,predictedScores=data()$model)
   # })
@@ -182,9 +213,7 @@ margin-top: 10px;
       mainPanel(width=12,
         tabsetPanel(type = "tabs", 
           tabPanel("Model",
-            fluidRow(
-              verbatimTextOutput ("test")
-            ),
+            uiOutput('summary'),
             fluidRow(
               verbatimTextOutput ("cm")
             )

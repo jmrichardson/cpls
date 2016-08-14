@@ -66,7 +66,7 @@ if (!exists('stats')) {
   load('data/stats.rda')
   
   # Model only complete notes
-  stats = subset(stats,((loan_status=='Fully Paid' | loan_status=='Charged Off') & complete == TRUE))
+  stats = subset(stats,((loan_status=='Fully Paid' | loan_status=='Charged Off'))
   stats$loan_status <- droplevels(stats$loan_status)
   
   stats$id <- NULL
@@ -131,7 +131,7 @@ server <- function(input, output, session) {
   output$summary <-renderUI({
     filteredNotes <- nrow(data())
     pct <- round(filteredNotes/totalNotes*100,2)
-    roi <- round(mean(data()$ROI),2)
+    roi <- round(sum(data()$roiNum)/sum(data()$roiDen),2)
     fluidRow(
       wellPanel(
         fluidRow(

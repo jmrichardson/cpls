@@ -18,7 +18,7 @@ RUN add-apt-repository -y 'deb http://mirror.vorboss.net/ubuntu-archive xenial m
 
 # Update and install ubunutu packages
 RUN apt-get update && apt-get -y upgrade
-RUN apt-get -y install openjdk-7-jre
+RUN apt-get -y install openjdk-7-jdk
 RUN apt-get -y install r-base
 RUN apt-get -y install git wget curl unzip ntp sudo
 RUN apt-get -y install openssl libssl-dev libcurl4-openssl-dev vim

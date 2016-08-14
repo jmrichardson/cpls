@@ -263,67 +263,66 @@ stats$class <- factor(stats$class,c('Charged Off','Fully Paid'))
 # Get duration of each note
 # End of Loan for fully paid is last_pymnt_d
 # End of Loan for charged off is last_pymnt_d + 5 months
-# End of Loan for active loans is current day (current age)
-stats$eolDays <- ifelse(stats$loan_status == 'Fully Paid',
+# End of Loan for active loans is issue_d + term
+eolDays <- ifelse(stats$loan_status == 'Fully Paid',
   as.numeric(difftime(stats$last_pymnt_d,stats$issue_d,units="days")),
   ifelse(stats$loan_status == 'Charged Off',
     ifelse(is.na(stats$last_pymnt_d),
       150,
       as.numeric(difftime(stats$last_pymnt_d + months(5),stats$issue_d,units="days"))),
-    as.numeric(difftime(now(),stats$issue_d,units="days"))
+    as.numeric(difftime(stats$issue_d + months(stats$term),stats$issue_d,units="days"))
   ))
-stats$eolMths=round(stats$eolDays/30)
+stats$eolMths=round(eolDays/30)
 stats$eolMths <- ifelse(stats$eolMths==0,1,stats$eolMths)
 
 # Age of loan based on current day for all loans
-stats$ageDays=as.numeric(difftime(now(),stats$issue_d,units="days"))
-stats$ageMths=round(stats$ageDays/30)
-
-# Obtain remaining principal
-stats$remPrncp=stats$fundedAmount-stats$total_rec_prncp
+ageDays=as.numeric(difftime(now(),stats$issue_d,units="days"))
+stats$ageMths=round(ageDays/30)
 
 # Obtain total interest paid by borrower
 stats$total_int=stats$remPrncp + stats$total_pymnt - stats$fundedAmount
 
-# Obtain fees from LC
+# Remaining principal
+stats$remPrncp=stats$fundedAmount-stats$total_rec_prncp
+
+# Fees from LC
 stats$fees= stats$total_pymnt * .01
-
-# Remove loans that have payments but no interest earned
-stats=stats[!stats$total_int==0 & stats$total_pymnt>0,]
-
-# Effective Principal by investor (not borrower) to obtain the total received interest
-# P=I/r for a simple interest loan
-# Based on the interest received and rate of loan, you can obtain the amount of principal paid
-# to obtain the interest received.  Cannot use all of the origination principal because all of the 
-# interest may not have been paid
-stats$prnPaid <- stats$total_int/(stats$intRate/100)
 
 # other Income
 stats$otherIncome = stats$recoveries + stats$collection_recovery_fee
 
 # Set loss to remaining principal * loss factor
-stats$loss=round(ifelse ( stats$loan_status == 'Charged Off', stats$remPrncp,
-  ifelse ( stats$loan_status == 'Default', stats$remPrncp * .98,
-    ifelse ( stats$loan_status == 'Late (31-120 days)', stats$remPrncp * .82,
-      ifelse ( stats$loan_status == 'Late (16-30 days)', stats$remPrncp * .59,
-        ifelse ( stats$loan_status == 'In Grace Period', stats$remPrncp  * .27, stats$remPrncp * 0))))),2)
+stats$loss=round(ifelse ( stats$loan_status == 'Charged Off', stats$out_prncp,
+  ifelse ( stats$loan_status == 'Default', stats$out_prncp * 1,
+    ifelse ( stats$loan_status == 'Late (31-120 days)', stats$out_prncp * .82,
+      ifelse ( stats$loan_status == 'Late (16-30 days)', stats$out_prncp * .57,
+        ifelse ( stats$loan_status == 'In Grace Period', stats$out_prncp  * .25, stats$out_prncp * 0))))),2)
+
+( stats$prnPaid + stats$loss )
 
 # ROI
-stats$ROI <- ( stats$total_int + stats$otherIncome -stats$fees - stats$loss ) / ( stats$prnPaid + stats$loss ) * 100
-# Don't annualize loans less than year and complete
-stats$ROI <- ifelse(stats$eolMths<12 & (stats$loan_status=='Fully Paid' | stats$loan_status=='Charged Off'),
-  round(( stats$total_int + stats$otherIncome + stats$total_rec_prncp - stats$fundedAmount - stats$loss ) / ( stats$fundedAmount + stats$loss)*100,2),
-  stats$ROI)
-stats$ROI <- round(stats$ROI - 1,2)
-stats$ROI <- ifelse(stats$ROI <= -100, -100,stats$ROI)
-summary(stats$ROI)
+stats$roiNum <- stats$total_int + stats$otherIncome - stats$fees - stats$loss
+stats$roiDen <- (stats$total_int / (stats$intRate/100)) + stats$loss
+stats$roiNum/stats$roiDen
+sum(stats$roiNum)/sum(stats$roiDen)
+
+sum(stats$total_int + stats$otherIncome - stats$fees - stats$loss)/sum(stats$total_int / (stats$intRate/100))
+
+#principal = fundedAmount
+#out prin = out_prncp
+#loss=
+
+
+b=subset(stats,issue_d >= '2016-01-01' & annualInc>= 500000 & loan_status=='In Grace Period')
+b=subset(stats,annualInc>= 800000 & annualInc <= 900000 & loan_status=='In Grace Period')
+b=subset(stats,loan_status=='Charged Off' & issue_d >= '2015-01-01' & issue_d <= '2015-03-01' & annualInc>= 900000)
 
 
 
 # Projected ROI
-stats$projROI = round(ifelse(stats$loan_status == 'Current' | stats$loan_status == 'Issued', 
-  stats$model * (stats$intRate - 1),
-  stats$ROI),2)
+# stats$projROI = round(ifelse(stats$loan_status == 'Current' | stats$loan_status == 'Issued', 
+#   stats$model * (stats$intRate - 1),
+#   stats$ROI),2)
 
 # Save stats
 save(stats, file='data/stats.rda')

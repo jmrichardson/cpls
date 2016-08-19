@@ -307,7 +307,7 @@ while (1) {
         # Set the maximum notes to order based on available cash and investment amount per note
         users[[i]]$maxNotesPerCash <- floor(users[[i]]$pre$cash / users[[i]]$amountPerNote)
         if (length(users[[i]]$filteredIds) > users[[i]]$maxNotesPerCash) {
-          users[[i]]$filteredIds <- head(users[[i]]$filteredNotesSorted$id,users[[i]]$maxNotesPerCash)
+          users[[i]]$filteredIds <- head(users[[i]]$filteredIds,users[[i]]$maxNotesPerCash)
           info(log,paste('User (',users[[i]]$name,') - Notes to order based on available cash: ',length(users[[i]]$filteredIds),sep=""))
         }
         

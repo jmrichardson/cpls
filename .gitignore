@@ -13,3 +13,4 @@ xgb.DMatrix.data
 stats.rda
 data/modelStats.rda
 df.rda
+data/model.rda

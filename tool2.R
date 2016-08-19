@@ -55,35 +55,18 @@ if(!dir.exists(dir)) {
   setwd(dir)
 }
 
-# Number formatter function
-printNumber <- function(value, digits=0, sep=",", decimal=".") {
-  formatC(value, format = "f", big.mark = sep, digits=digits, decimal.mark=decimal)
-}
-
-# Load data
-if (!exists('stats') | !exists('ph')) { 
-  
-  # Load helper functions
-  source('scripts/funcs.R')
-  
-  # Load model and stats data
-  load('data/stats.rda')
-  load('data/phMin.rda')
-  
-  # Model only complete notes
-  stats = subset(stats,(loan_status=='Fully Paid' | loan_status=='Charged Off'))
-  stats$loan_status <- droplevels(stats$loan_status)
-  
-  # Filter payment history by stats id
-  ph <- merge(x = ph, y = stats[,.(id)], by = "id")
-
-  # Total fully paid and charged off notes
-  totalNotes <- nrow(stats)
-
-}
-
+# Load helper functions
+source('scripts/funcs.R')
 
 server <- function(input, output, session) { 
+  
+  # Load init scripts
+  output$loadInit = reactive({
+     # Initialize
+    source('scripts/initTool.R')
+    return(1)
+  })
+  outputOptions(output, 'loadInit', suspendWhenHidden=FALSE)
   
   # Filter test notes using filter text given
   data <- reactive ({
@@ -110,8 +93,9 @@ server <- function(input, output, session) {
   output$summary <-renderUI({
     filteredNotes <- nrow(data())
     pct <- round(filteredNotes/totalNotes*100,2)
-    co <- round(prop.table(table(data()$loan_status))[1],2)
-    age <- round(mean(data()$aol))
+    co <- round(prop.table(table(data()$loan_status))[1],2)*100
+    age <- round(mean(data()$aol),2)
+    rate <- round(mean(data()$intRate),2)
     fluidRow(
       wellPanel(
         fluidRow(
@@ -121,11 +105,11 @@ server <- function(input, output, session) {
         ),
         fluidRow(
           column(4,paste('XIRR: ',xirr(),'%',sep='')),
-          column(4,paste('Projected ROI: ','proi','%',sep='')),
-          column(4,paste('Age:',age))
+          column(4,paste('Average Rate: ',rate,'%',sep='')),
+          column(4,paste('Age:',age,' Months'))
         ),
         fluidRow(
-          column(4,paste('Charge Offs: ',co,'%',sep='')),
+          column(4,paste('Charged Off: ',co,'%',sep='')),
           column(4,paste('Late 16: ','l16','%',sep='')),
           column(4,paste('Late 31: ','l31','%',sep=''))
         )
@@ -181,11 +165,15 @@ margin-top: 10px;
     verticalLayout(
       fluidRow(
         wellPanel(
-          fluidRow(
-              textareaInput("filter", "Filter", rows=4,'term==36')
+          conditionalPanel(
+            condition = "output.loadInit != 1",
+            h5('Loading data. Please be patient...')
           ),
           fluidRow(
-              submitButton("Submit")
+            textareaInput("filter", "Filter", rows=4)
+          ),
+          fluidRow(
+            submitButton("Submit")
           )
         )
       ),

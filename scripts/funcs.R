@@ -62,10 +62,10 @@ gURL <- function(url,token) {
 
 # How many cores/threads to use (1 per user).  Defaults to all cores
 # Windows can only have 1 core
-cores = detectCores()
-if (.Platform$OS.type == 'windows') {
-  cores = 1
-}
+# cores = detectCores()
+# if (.Platform$OS.type == 'windows') {
+#   cores = 1
+# }
   
 
 # LC API Version
@@ -123,6 +123,68 @@ nowPST <- function() {
 hmMin <- function() {
   nowMin <- nowPST()+minutes(1)
   paste(str_pad(hour(nowMin),2,pad="0"),str_pad(minute(nowMin),2,pad="0"),sep=":")
+}
+
+# XIRR Functions
+sppv <- function (i, n) {
+  return((1 + i/100)^(-n))
+}
+
+npv <- function(x, i) {
+  npv = c()
+  for (k in 1:length(i)) {
+    pvs = x * sppv(i[k], 1:length(x))
+    npv = c(npv, sum(pvs))
+  }
+  return(npv)
+}
+
+xIRR <- function (df) {
+
+  df=subset(df,Payment!=0)
+  df=aggregate(Payment ~ Month, data=df, sum)
+  cashflow = df$Payment
+  dates = df$Month
+  numDays <<- as.numeric(max(dates) - min(dates))
+  if(numDays>365) {
+    numDays = 365 
+  }
+  
+  cashflow_adj <- c(cashflow[1])
+  for (i in 1:(length(cashflow)-1)) {
+    d1 <- as.Date(dates[i])
+    d2 <- as.Date(dates[i+1])
+    # There are no checks about the monotone values of dates
+    interval <- as.integer(d2 - d1)
+    cashflow_adj <- c(cashflow_adj, rep(0, interval-1), cashflow[i+1])
+  }
+  cashflow_adj <<- cashflow_adj
+
+
+  # Bisection method finding the rate to zero npv
+  left = -30
+  right = 30
+  epsilon = 1e-8
+  while (abs(right-left) > 2*epsilon) {
+    if(is.nan(npv(cashflow_adj, left))) {
+      left = left+1
+      next
+    }
+    midpoint = (right+left)/2
+    if(is.nan(npv(cashflow_adj, midpoint))) {
+      right = right-1
+      next
+    }
+    if (npv(cashflow_adj, left) * npv(cashflow_adj, midpoint) > 0) {
+      left = midpoint
+    } else {
+      right = midpoint
+    }
+  }
+
+  irr = (right+left) / 2 / 100 
+  irr <- (1 + irr) ^ numDays - 1
+  round(irr,4)
 }
 
 

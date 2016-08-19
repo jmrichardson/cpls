@@ -14,6 +14,7 @@ library('NMOF')
 library('snow')
 library('quantmod')
 library('InformationValue')
+library('data.table')
 
 # No scientific
 options("scipen"=10, "digits"=10)
@@ -63,81 +64,108 @@ if(!dir.exists(dir)) {
 # Load LC stats data
 load('data/stats.rda')
 
-# Model only complete notes
-stats = subset(stats,(loan_status=='Fully Paid' | loan_status=='Charged Off'))
+# Model only charged off or fully paid notes
+stats=stats[loan_status=='Fully Paid' | loan_status=='Charged Off'][order(id)]
 
-# Get true label class
-label <- ifelse(stats$loan_status=='Fully Paid',1,0)
+# Record label and id
+id <- stats$id
+label <- stats$label
 
-# Remove unnecessary fields
-stats$model <- NULL
-stats$label <- NULL
-stats$id <- NULL
-stats$member_id <- NULL
-stats$fundedAmount <- NULL
-stats$funded_amnt_inv <- NULL
-stats$empTitle <- NULL
-stats$issue_d <- NULL
-stats$url <- NULL
-stats$desc <- NULL
-stats$out_prncp <- NULL
-stats$out_prncp_inv <- NULL
-stats$total_pymnt <- NULL
-stats$total_pymnt_inv <- NULL
-stats$total_rec_prncp <- NULL
-stats$total_rec_int <- NULL
-stats$total_rec_late_fee <- NULL
-stats$recoveries <- NULL
-stats$collection_recovery_fee <- NULL
-stats$stats$last_pymnt_d <- NULL
-stats$last_pymnt_amnt <- NULL
-stats$next_pymnt_d <- NULL
-stats$next_pymnt_d <- NULL
-stats$last_credit_pull_d <- NULL
-stats$last_fico_range_high <- NULL
-stats$policy_code <- NULL
-stats$completeDate <- NULL
-stats$remPrncp <- NULL
-stats$total_int <- NULL
-stats$fees <- NULL
-stats$prnPaid <- NULL
-stats$loss <- NULL
-stats$title <- NULL
-stats$ficoRangeHigh <- NULL
-stats$pymnt_plan <- NULL
-stats$last_pymnt_d <- NULL
-stats$earliestCrLine <- NULL
-stats$addrZip <- NULL
-stats$loan_status <- NULL
-stats$memberId <- NULL
-stats$fundedAmount <- NULL
-stats$last_fico_range_low <- NULL
-
-# Remove LC influenced fields - All of these values are LC dependent and changes over time
-stats$intRate <- NULL
-stats$grade <- NULL
-stats$subGrade <- NULL
-stats$installment <- NULL
-
-# Remove term
-stats$term <- NULL
-
-# Remove unimportant features based on model importance
-
-# Save feature names
-featureNames <- colnames(stats)
-# featureNames <- featureNames[! featureNames %in% 'percPaid']
+# Select available model fields
+featureNames <- c("loanAmount",
+  "empLength",
+  "homeOwnership",
+  "annualInc",
+  "isIncV",
+  "purpose",
+  "addrState",
+  "dti",           
+  "delinq2Yrs",
+  "ficoRangeLow",
+  "inqLast6Mths",
+  "mthsSinceLastDelinq",       
+  "mthsSinceLastRecord",
+  "openAcc",
+  "pubRec",
+  "revolBal",                  
+  "revolUtil",
+  "totalAcc",
+  "initialListStatus",
+  "collections12MthsExMed",
+  "mthsSinceLastMajorDerog",
+  "applicationType",
+  "annualIncJoint",
+  "dtiJoint",
+  "isIncVJoint",
+  "accNowDelinq",
+  "totCollAmt",
+  "totCurBal",                 
+  "openAcc6m",
+  "openIl6m",
+  "openIl12m",
+  "openIl24m",
+  "mthsSinceRcntIl",
+  "totalBalIl",
+  "iLUtil",
+  "openRv12m",
+  "openRv24m",
+  "maxBalBc",
+  "allUtil",
+  "totalRevHiLim",
+  "inqFi",
+  "totalCuTl",
+  "inqLast12m",
+  "accOpenPast24Mths",
+  "avgCurBal",
+  "bcOpenToBuy",
+  "bcUtil",
+  "chargeoffWithin12Mths",
+  "delinqAmnt",
+  "moSinOldIlAcct",
+  "moSinOldRevTlOp",
+  "moSinRcntRevTlOp",
+  "moSinRcntTl",
+  "mortAcc",
+  "mthsSinceRecentBc",
+  "mthsSinceRecentBcDlq",
+  "mthsSinceRecentInq",
+  "mthsSinceRecentRevolDelinq",
+  "numAcctsEver120Ppd",
+  "numActvBcTl",
+  "numActvRevTl",
+  "numBcSats",
+  "numBcTl",
+  "numIlTl",
+  "numOpRevTl",
+  "numRevAccts",
+  "numRevTlBalGt0",
+  "numSats",
+  "numTl120dpd2m",
+  "numTl30dpd",
+  "numTl90gDpd24m",
+  "numTlOpPast12m",            
+  "pctTlNvrDlq",
+  "percentBcGt75",
+  "pubRecBankruptcies",
+  "taxLiens",
+  "totHiCredLim",
+  "totalBalExMort",
+  "totalBcLimit",
+  "totalIlHighCreditLimit",
+  "earliest_cr_line", 
+  "earliestCrLineMonths",
+  "amountTerm",
+  "amountTermIncomeRatio",
+  "revolBalAnnualIncRatio",
+  "population",
+  "avgWage")
+stats <- stats[,featureNames,with=FALSE]                     
 
 # Convert to numeric (xgboost requires numeric)
 dmy <- dummyVars(" ~ .", data = stats)
 stats <- data.frame(predict(dmy, newdata = stats))
 
-# Remove unimportant features based on trained model
-# if(exists('features')) {
-#   stats <- stats[,features]
-# }
-
-# Add label
+# Add back label
 stats$label <- label
 
 #
@@ -241,21 +269,81 @@ AUROC(actual, pred)
 # Save model and train/test data
 save(xgbModel,results,params,inTrain,featureNames,dmy, file='data/model.rda')
 
+# Label as test or train data
+
+# Create sets data frame to record which loans were in train and test set
+sets = as.data.frame(id)
+trainIdx <- as.vector(inTrain)
+sets$set <- 'test'
+sets[trainIdx,]$set <- 'train'
+sets$set <- as.factor(sets$set)
+names(sets)<-c('id','set')
+
+# trainIdx <- as.vector(inTrain)
+# testIdx <- as.vector(-inTrain)
+# stats$set <- 'test'
+# stats[trainIdx,]$set <- 'train'
+# stats$set <- as.factor(stats$set)
+# sets <- stats[,c('id','set')]
+
+# Add set label to stats data frame
+load('data/stats.rda')
+stats <- merge(x = stats, y = sets, by = "id", all.x=TRUE)
+
+# Model stats data
+stats$model <- predict(xgbModel, data.matrix(predict(dmy, newdata=stats[,featureNames, with=FALSE])), missing=NA)
+
+# Save stats
+save(stats, file='data/stats.rda')
+
 stop()
 
 
-# Model stats data
-load('data/stats.rda')
-stats$label <- ifelse(stats$loan_status=='Fully Paid',1,0)
-stats$model <- predict(xgbModel, data.matrix(predict(dmy, newdata=stats[,featureNames])), missing=NA)
 
-# Maturity
-stats$complete <- ifelse(stats$issue_d %m+% months(stats$term) <= as.Date(now()),TRUE,FALSE)
 
-# Set class as fully paid for all notes (used in tool)
-stats$class <- as.factor('Fully Paid')
-levels(stats$class) <- c('Fully Paid','Charged Off')
-stats$class <- factor(stats$class,c('Charged Off','Fully Paid'))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 ### Add ROI data ###
@@ -325,8 +413,7 @@ stats$projROI = round(ifelse(stats$loan_status == 'Current' | stats$loan_status 
   stats$model * (stats$intRate - 1),
   stats$ROI),2)
 
-# Save stats
-save(stats, file='data/stats.rda')
+
 
 
 # End

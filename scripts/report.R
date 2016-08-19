@@ -2,7 +2,8 @@
 
 for (i in 1:length(users)) {
   
-  # Skip users where order was not sent 
+  # Skip users where order was not sent
+  if ( !exists('orderSent',where=users[[i]]) ) next
   if (users[[i]]$orderSent  == 'no' ) next
   
   # Load template html

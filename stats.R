@@ -5,6 +5,7 @@ library('plyr')
 library('dplyr')
 library('lubridate')
 library('stringr')
+library('data.table')
 
 # Function to set relative home directory (requires latest Rstudio)
 defaultDir = '/home/user/cpls'
@@ -45,13 +46,6 @@ if(!dir.exists(dir)) {
   setwd(dir)
 }
 
-# LC date conversion function (LC drops days of the month in their statistics file)
-dateConv <- function(x, year=1925){
-  m <- year(x) %% 100
-  year(x) <- ifelse(m > year %% 100, 1900+m, 2000+m)
-  x
-}
-
 # Set seed for model comparisons
 set.seed(1)
 
@@ -59,34 +53,54 @@ set.seed(1)
 statsDir <- 'C:/temp'
 # statsDir <- '/var/tmp'
 
+
 # Read in Lending Club statistics
 stats1=read.csv(paste(statsDir,'LoanStats3a_securev1.csv',sep='/'),header=TRUE,skip=1)
+stats1 <- stats1[!is.na(stats1$loan_amnt),]
+stats1$id=as.integer(as.character(stats1$id))
+
 stats2=read.csv(paste(statsDir,'LoanStats3b_securev1.csv',sep='/'),header=TRUE,skip=1)
+stats2 <- stats2[!is.na(stats2$loan_amnt),]
+stats2$id=as.integer(as.character(stats2$id))
+
 stats3=read.csv(paste(statsDir,'LoanStats3c_securev1.csv',sep='/'),header=TRUE,skip=1)
+stats3 <- stats3[!is.na(stats3$loan_amnt),]
+stats3$id=as.integer(as.character(stats3$id))
+
 stats4=read.csv(paste(statsDir,'LoanStats3d_securev1.csv',sep='/'),header=TRUE,skip=1)
+stats4 <- stats4[!is.na(stats4$loan_amnt),]
+stats4$id=as.integer(as.character(stats4$id))
+
 stats5=read.csv(paste(statsDir,'LoanStats_securev1_2016Q1.csv',sep='/'),header=TRUE,skip=1)
+stats5 <- stats5[!is.na(stats5$loan_amnt),]
+stats5$id <- as.integer(as.character(stats5$id))
+
 stats6=read.csv(paste(statsDir,'LoanStats_securev1_2016Q2.csv',sep='/'),header=TRUE,skip=1)
+stats6 <- stats6[!is.na(stats6$loan_amnt),]
+stats6$id=as.integer(as.character(stats6$id))
 
 # Update field name
 names(stats1)[names(stats1)=="is_inc_v"] <- "verification_status"
 names(stats2)[names(stats2)=="is_inc_v"] <- "verification_status"
 
-# # Merge statisticis
+# # Verify classes are the same for fields before merging
+# for (name in names(stats6)) {
+#   classes <- c(class(stats1[[name]]),class(stats2[[name]]),class(stats3[[name]]),class(stats4[[name]]),class(stats5[[name]]),class(stats6[[name]]))
+#   if (length(unique(classes))>1) {
+#     print(name)
+#     print(classes)
+#   }
+# }
+
 # df=merge(stats1,stats2,all=T)
 # df=merge(df,stats3,all=T)
 # df=merge(df,stats4,all=T)
 # stats=merge(df,stats5,all=T)
-
-# Remove fields that aren't present in historical stats
-# stats3[,57:200] <- list(NULL)
-# stats4[,57:200] <- list(NULL)
-# stats5[,57:200] <- list(NULL)
+# stats <- smartbind(stats1,stats2)
 
 # Combine all LC stats into one stats frame
-stats <- rbind.fill(stats1,stats2,stats3,stats4,stats5,stats6)
-
-# Remove notes without loan amount
-stats <- stats[!is.na(stats$loan_amnt),]
+stats <- rbind.fill(list(stats1,stats2,stats3,stats4,stats5,stats6))
+# stats <- data.table::rbindlist(list(stats1,stats2,stats3,stats4,stats5,stats6),fill = TRUE)
 
 # Rename columns to match LC API
 names(stats)[names(stats)=="loan_amnt"] <- "loanAmount"
@@ -187,16 +201,17 @@ stats$isIncV=as.factor(toupper(gsub(" ", '_', stats$isIncV)))
 stats$annualInc=round(stats$annualInc)
 stats$initialListStatus=as.factor(toupper(stats$initialListStatus))
 stats$revolBal <- as.numeric(stats$revolBal)
-stats$issue_d<-as.Date(dateConv(dmy(paste("01", stats$issue_d, sep = "-"))))
-stats$last_pymnt_d<-as.Date(dateConv(dmy(paste("01", stats$last_pymnt_d, sep = "-"))))
+
+stats$issue_d=as.Date(format(strptime(paste("01", stats$issue_d, sep = "-"), format = "%d-%b-%Y"), "%Y-%m-%d"))
+stats$last_pymnt_d=as.Date(format(strptime(paste("01", stats$last_pymnt_d, sep = "-"), format = "%d-%b-%Y"), "%Y-%m-%d"))
+
 stats$term <-as.integer(as.character(gsub(" months", "", stats$term)))
 stats$intRate <-as.numeric(as.character(gsub("%", "", stats$intRate)))
 
 # Feature engineering
-stats$earliestCrLine<-dateConv(dmy(paste("01", stats$earliestCrLine, sep = "-")))
+stats$earliest_cr_line <- as.Date(format(strptime(paste("01", stats$earliest_cr_line, sep = "-"), format = "%d-%b-%Y"), "%Y-%m-%d"))
 stats$n=ymd(Sys.Date())
-stats$earliestCrLineMonths=as.integer(round((stats$n - stats$earliestCrLine)/30.4375)-1)
-stats$n=NULL
+stats$earliestCrLineMonths=as.integer(round((stats$n - stats$earliest_cr_line)/30.4375)-1)
 stats$amountTerm <- stats$loanAmount/stats$term
 stats$amountTermIncomeRatio=stats$amountTerm/(stats$annualInc/12)
 stats$revolBalAnnualIncRatio=stats$revolBal/stats$annualInc
@@ -209,5 +224,56 @@ stats <- merge(x=stats,y=zip,by="addrZip",all.x=TRUE)
 # source('fred.R')
 # stats <- merge(x=stats,y=allFred,by="issue_d",all.x=TRUE)
 
+# Add binary label
+stats$label <- ifelse(stats$loan_status=='Fully Paid',1,0)
+
+# Maturity
+stats$complete <- ifelse(stats$issue_d %m+% months(stats$term) <= as.Date(now()),TRUE,FALSE)
+
+# Set predicted class as fully paid for all notes (used in tool)
+stats$class <- as.factor('Fully Paid')
+levels(stats$class) <- c('Fully Paid','Charged Off')
+stats$class <- factor(stats$class,c('Charged Off','Fully Paid'))
+
+# Get age of loan based on last payment
+aolDays <- ifelse(stats$loan_status == 'Fully Paid',
+  as.numeric(difftime(stats$last_pymnt_d,stats$issue_d,units="days")),
+  ifelse(stats$loan_status == 'Charged Off',
+    ifelse(is.na(stats$last_pymnt_d),
+      150,
+      as.numeric(difftime(stats$last_pymnt_d + months(5),stats$issue_d,units="days"))),
+    as.numeric(difftime(now(),stats$issue_d,units="days"))
+  ))
+stats$aol=round(aolDays/30)
+
+# As data table
+stats <- as.data.table(stats)
+setkey(stats,id)
+
 # Save historical stats
 save(stats,file='data/stats.rda')
+
+###----------------------------------------------------
+
+# Load payment history file
+ph <- fread(paste(statsDir,"/",'PMTHIST_all_20160715.csv',sep=''))
+
+# rename column
+ph <- rename(ph,id=LOAN_ID)
+ph <- rename(ph,Principal=PBAL_BEG_PERIOD)
+ph <- rename(ph,Month=MONTH)
+ph <- rename(ph,Payment=RECEIVED_AMT)
+
+# Convert date format
+ph$Month <- dmy(paste("01", ph$Month , sep =""))
+
+# Set key for performance
+setkey(ph,id)
+
+# Select required columns for ROI tool
+ph <- ph[,.(id,Month,Principal,Payment)]
+
+# Save abbreviated payment history
+save(ph,file='data/phMin.rda')
+
+

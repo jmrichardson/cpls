@@ -60,14 +60,6 @@ gURL <- function(url,token) {
 ### Advanced configuration below - Do NOT MODIFY
 ###############################################################################
 
-# How many cores/threads to use (1 per user).  Defaults to all cores
-# Windows can only have 1 core
-# cores = detectCores()
-# if (.Platform$OS.type == 'windows') {
-#   cores = 1
-# }
-  
-
 # LC API Version
 apiVersion = "v1"
 

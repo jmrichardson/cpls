@@ -63,6 +63,13 @@ log <- create.logger(level='INFO',logfile=logFile)
 info(log,'-------------------------------------')
 info(log,'Starting Command Line PLS Version 1.0')
 
+# Run with maximum cores
+cores = detectCores()
+if (.Platform$OS.type == 'windows') {
+  cores = 1
+}
+info(log,paste('Execution cores:',cores))
+
 # Set program operation mode (default is schedule)
 opMode <- 'schedule'
 args<-commandArgs(TRUE)

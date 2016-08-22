@@ -135,7 +135,7 @@ while (1) {
     # Show wait status on next iteration
     showWait=T
     
-    info(log,'Starting process ...')
+    info(log,'*** Starting process ***')
     
         
     # Read log file (connection)
@@ -207,7 +207,7 @@ while (1) {
       for(one in 1) {
         
         # Set order sent flag
-        users[[i]]$orderSent <<- 'no'
+        users[[i]]$orderSent <- 'no'
         
         # Verify we have cash available for user
         if(is.null(users[[i]]$pre$cash) | length(users[[i]]$pre$cash) == 0 | ! is.numeric(users[[i]]$pre$cash)) {
@@ -240,7 +240,7 @@ while (1) {
         } else {
           info(log,paste('User (',users[[i]]$name,') - Total filtered notes: ',users[[i]]$totalFilteredLoans,sep=""))
         }
-        users[[i]]$numFilteredNotes <<- users[[i]]$totalFilteredLoans
+        users[[i]]$numFilteredNotes <- users[[i]]$totalFilteredLoans
         
         # Obtain filtered notes id's
         users[[i]]$filteredIds <- users[[i]]$filteredLoans$id
@@ -324,7 +324,7 @@ while (1) {
           info(log,paste('User (',users[[i]]$name,') - Max notes per order: ',length(users[[i]]$filteredIds),sep=""))
         }
         
-        users[[i]]$filteredIds <<- users[[i]]$filteredIds
+        users[[i]]$filteredIds <- users[[i]]$filteredIds
         info(log,paste('User (',users[[i]]$name,') - Total notes to order: ',length(users[[i]]$filteredIds),sep=""))
         
 
@@ -349,7 +349,7 @@ while (1) {
         users[[i]]$orderJSON <- toJSON(users[[i]]$order,auto_unbox=TRUE)
 
         # Time markers
-        users[[i]]$elapsedProcTime <<- round((proc.time() - startTime)[3],2)
+        users[[i]]$elapsedProcTime <- round((proc.time() - startTime)[3],2)
         users[[i]]$startOrderTime <- proc.time()
 
         # Order notes
@@ -379,26 +379,31 @@ while (1) {
         }
 
         # Set variable that order was sent to LC
-        users[[i]]$orderSent <<- 'yes'
+        users[[i]]$orderSent <- 'yes'
         
         users[[i]]$resultOrder$numOrderedNotes <- nrow(subset(users[[i]]$resultOrder$orderConfirmation, investedAmount>0))
         users[[i]]$resultOrder$investedAmount <- sum(users[[i]]$resultOrder$orderConfirmation$investedAmount)
         users[[i]]$resultOrder$requestedAmount <- sum(users[[i]]$resultOrder$orderConfirmation$requestedAmount)
         
         # Save result order to master namespace for reporting purposes
-        users[[i]]$resultOrder <<- users[[i]]$resultOrder
+        users[[i]]$resultOrder <- users[[i]]$resultOrder
         
         # Vector of notes ordered by loanId
-        users[[i]]$notesOrderedIds <<- subset(users[[i]]$resultOrder$orderConfirmations,investedAmount > 0,select=c('loanId'))
+        users[[i]]$notesOrderedIds <- subset(users[[i]]$resultOrder$orderConfirmations,investedAmount > 0,select=c('loanId'))
 
         # Time markers
-        users[[i]]$elapsedOrderTime <<- round((proc.time() - users[[i]]$startOrderTime)[3],2)
-        users[[i]]$elapsedTotalTime <<- users[[i]]$elapsedProcTime + users[[i]]$elapsedOrderTime + apiTimeElapse
+        users[[i]]$elapsedOrderTime <- round((proc.time() - users[[i]]$startOrderTime)[3],2)
+        users[[i]]$elapsedTotalTime <- users[[i]]$elapsedProcTime + users[[i]]$elapsedOrderTime + apiTimeElapse
         
         info(log,paste('User (',users[[i]]$name,') - Order submitted',sep=""))
         
       }
+      return(users[[i]])
     },mc.cores=cores)
+    users <- unlist(result, recursive=FALSE)
+    print(users)
+    stop()
+    
 
     # Loans percent funded
     loans$n=NULL

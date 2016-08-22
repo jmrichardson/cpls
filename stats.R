@@ -209,9 +209,9 @@ stats$term <-as.integer(as.character(gsub(" months", "", stats$term)))
 stats$intRate <-as.numeric(as.character(gsub("%", "", stats$intRate)))
 
 # Feature engineering
-stats$earliest_cr_line <- as.Date(format(strptime(paste("01", stats$earliest_cr_line, sep = "-"), format = "%d-%b-%Y"), "%Y-%m-%d"))
+stats$earliestCrLine <- as.Date(format(strptime(paste("01", stats$earliestCrLine, sep = "-"), format = "%d-%b-%Y"), "%Y-%m-%d"))
 stats$n=ymd(Sys.Date())
-stats$earliestCrLineMonths=as.integer(round((stats$n - stats$earliest_cr_line)/30.4375)-1)
+stats$earliestCrLineMonths=as.integer(round((stats$n - stats$earliestCrLine)/30.4375)-1)
 stats$amountTerm <- stats$loanAmount/stats$term
 stats$amountTermIncomeRatio=stats$amountTerm/(stats$annualInc/12)
 stats$revolBalAnnualIncRatio=stats$revolBal/stats$annualInc

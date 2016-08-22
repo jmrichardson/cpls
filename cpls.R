@@ -400,11 +400,10 @@ while (1) {
       }
       return(users[[i]])
     },mc.cores=cores)
-    users <- unlist(result, recursive=FALSE)
-    print(users)
-    stop()
     
-
+    # Result contains users and order data
+    users <- result
+    
     # Loans percent funded
     loans$n=NULL
     loans$pctFunded = loans$fundedAmount / loans$loanAmount

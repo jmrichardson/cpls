@@ -77,7 +77,6 @@ if(!is.na(args[1])) {
   if(args[1]=='schedule' | args[1]=='runOnce' | args[1]=='test' ) { 
     opMode <- args[1] 
   } else {
-    print('asdf')
     err('Invalid operation mode argument: Options are schedule, runOnce, test')
   }
 }
@@ -147,9 +146,11 @@ while (1) {
     source('scripts/getCash.R')
     
     # If using allocation distribution, load allocation
-    if (exists('gradeAllocation', where=users[[i]]) | exists('termAllocation', where=users[[i]]) ) {
-      phase <- 'pre'
-      source('scripts/portfolioAlloc.R')  
+    for (i in 1:length(users)) {
+      if (exists('gradeAllocation', where=users[[i]]) | exists('termAllocation', where=users[[i]]) ) {
+        phase <- 'pre'
+        source('scripts/portfolioAlloc.R')  
+      }
     }
     
     # Get platform note count    
@@ -168,6 +169,7 @@ while (1) {
       newNoteCount=1
       apiTimeElapse=4
       loans <- read.csv('data/loans_sample.csv')
+      loans$initialListStatus <- as.factor(ifelse(loans$initialListStatus==FALSE,'F','T'))
     } else if (opMode == 'model') {
       newJson <- gURL(urlLoanListAll,users[[i]]$token)
       loans = fromJSON(newJson)$loans
@@ -191,6 +193,7 @@ while (1) {
     loans$revolBalAnnualIncRatio=loans$revolBal/loans$annualInc
 
     # Add model probability to each loan  
+    # All features must exist in loans data (will error if not)
     loans$model <- predict(xgbModel, data.matrix(data.frame(predict(dmy, newdata=loans[,featureNames]))), missing=NA)
 
     # End if opMode is model
@@ -200,7 +203,7 @@ while (1) {
     }
 
     # Process each user account
-    info(log,'Processing all user accounts')
+    info(log,'Processing all user accounts in parallel')
     result <- mclapply(1:length(users),function(i){
       
       # Simple loop to stop execution on error
@@ -226,7 +229,7 @@ while (1) {
         users[[i]]$filteredLoans <- loans %>%
           arrange(desc(loans[[users[[i]]$sortField]])) %>%
           users[[i]]$filterCriteria() %>%
-          select(id,grade,term)
+          select(id,grade,term,intRate)
           
         
         users[[i]]$filteredLoans$grade <- factor(users[[i]]$filteredLoans$grade,levels=c("A","B","C","D","E","F","G"))
@@ -251,10 +254,23 @@ while (1) {
             warn(log,paste('User (',users[[i]]$name,') - No portfolio information or 0 notes owned (stopping)',sep=""))
             break          
           }
+          
+          # Sample function (used by term and grade percent maximum) (needs to be included here instead of funcs.R because of name space)
+          getSample <- function(val,field,filteredCnt,maxPer,i) {
+            cnt <- filteredCnt[[val]]
+            if(!cnt) return()
+            max <- maxPer[[val]]
+            if(!max) return()
+            sel=ifelse(max<=cnt,max,cnt)
+            if (sel) {
+              sub <- subset(users[[i]]$filteredLoans,users[[i]]$filteredLoans[[field]] == val)
+              sub[sample(nrow(sub), sel), ][1]
+            }
+          }
           # Total number of notes in portfolio and new notes matching criteria
           users[[i]]$totalNotesFilteredPort <- users[[i]]$pre$portNoteCnt + users[[i]]$totalFilteredLoans
         }
-        
+
         if (exists('gradeAllocation', where=users[[i]])) {
           # Determine number of notes allowed per grade in portfolio based on max note count
           users[[i]]$maxGradeTotalNotes <- round(users[[i]]$totalNotesFilteredPort*users[[i]]$gradeAllocation)
@@ -264,6 +280,7 @@ while (1) {
           # Number of notes per grade
           users[[i]]$filteredGradeCnt <- table(users[[i]]$filteredLoans$grade)
           
+
           # Select appropriate notes per grade
           users[[i]]$gradeFilter <- do.call(rbind,lapply(LETTERS[1:7], getSample, 
                                          field = "grade",
@@ -274,9 +291,8 @@ while (1) {
           info(log,paste('User (',users[[i]]$name,') - Total filtered notes after grade allocation: ',length(users[[i]]$filteredIds),sep=""))
         }
         
-        
         if (exists('termAllocation', where=users[[i]])) {
-          # Determine number of notes allowed per term in portfolio based on max note count
+          # Determine number of notes allowed per term in portfolio based on allocation percent
           users[[i]]$maxTermNotes <- round(users[[i]]$totalNotesFilteredPort*users[[i]]$termAllocation)
           users[[i]]$maxPerTerm <- users[[i]]$maxTermNotes - users[[i]]$pre$portTermFreq$Freq
           users[[i]]$maxPerTerm <- ifelse(users[[i]]$maxPerTerm<0,0,users[[i]]$maxPerTerm)
@@ -290,6 +306,7 @@ while (1) {
                                          filteredCnt=users[[i]]$filteredTermCnt, 
                                          maxPer=users[[i]]$maxPerTerm, i))
           
+
           users[[i]]$filteredIds <- users[[i]]$termFilter$id
           info(log,paste('User (',users[[i]]$name,') - Total filtered notes after term allocation: ',length(users[[i]]$filteredIds),sep=""))
         }
@@ -303,7 +320,7 @@ while (1) {
         
         # If no notes after term and grade allocation filter, then break
         if (length(users[[i]]$filteredIds) < 1) {
-          info(log,paste('User (',users[[i]]$name,') - No notes match filter criteria after allocation',sep=""))
+          info(log,paste('User (',users[[i]]$name,') - No filtered notes after allocation',sep=""))
           break
         }
         
@@ -385,7 +402,7 @@ while (1) {
         users[[i]]$resultOrder$investedAmount <- sum(users[[i]]$resultOrder$orderConfirmation$investedAmount)
         users[[i]]$resultOrder$requestedAmount <- sum(users[[i]]$resultOrder$orderConfirmation$requestedAmount)
         
-        # Save result order to master namespace for reporting purposes
+        # Save result order for reporting purposes
         users[[i]]$resultOrder <- users[[i]]$resultOrder
         
         # Vector of notes ordered by loanId

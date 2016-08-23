@@ -1,10 +1,5 @@
 # This is a script file because it is used twice (pre and post)
 
-# if (phase == 'pre') {
-#   info(log,paste('User (',users[[i]]$name,') - Obtaining current portfolio allocation',sep=""))
-# } else {
-#   info(log,paste('User (',users[[i]]$name,') - Obtaining post order portfolio information',sep=""))
-# }
 
 # Obtain current portfolio grade frequency and total note count
 users[[i]]$attemptNotesOwned <- 1

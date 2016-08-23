@@ -18,18 +18,6 @@ printNumber <- function(value, digits=0, sep=",", decimal=".") {
   formatC(value, format = "f", big.mark = sep, digits=digits, decimal.mark=decimal)
 }
 
-# Sample function (used by term and grade percent maximum)
-getSample <- function(val,field,filteredCnt,maxPer,i) {
-  cnt <- filteredCnt[[val]]
-  if(!cnt) return()
-  max <- maxPer[[val]]
-  if(!max) return()
-  sel=ifelse(max<=cnt,max,cnt)
-  if (sel) {
-    sub <- subset(users[[i]]$filteredLoans,users[[i]]$filteredLoans[[field]] == val)
-    sub[sample(nrow(sub), sel), ][1]
-  }
-}
 
 # Error handling function
 err <- function(str) {

@@ -20,7 +20,7 @@ for (i in 1:length(users)) {
   users[[i]]$html <- gsub('REQUESTAMOUNT',printCurrency(users[[i]]$resultOrder$requestedAmount),users[[i]]$html)
   users[[i]]$html <- gsub('PROCTIME',paste (users[[i]]$elapsedProcTime,'s',sep=''),users[[i]]$html)
   users[[i]]$html <- gsub('ORDERTIME',paste(users[[i]]$elapsedOrderTime,'s',sep=''),users[[i]]$html)
-  users[[i]]$html <- gsub('TOTALTIME',paste (users[[i]]$elapsedTotalTime,'s',sep=''),users[[i]]$html)
+  users[[i]]$html <- gsub('AVGINTRATE',paste (round(mean(users[[i]]$filteredLoans[users[[i]]$filteredLoans$id %in% users[[i]]$filteredIds,]$intRate),2),'%',sep=''),users[[i]]$html)
   users[[i]]$html <- gsub('MAXPERORDER',users[[i]]$maxNotesPerOrder,users[[i]]$html)
   users[[i]]$html <- gsub('AMTPERNOTE',printCurrency(users[[i]]$amountPerNote),users[[i]]$html)
   users[[i]]$html <- gsub('DOWNTIME',paste(round(apiTimeElapse,2),"s",sep=''),users[[i]]$html)

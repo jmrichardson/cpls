@@ -76,6 +76,7 @@ ph=read.csv(file=paste(tmpDir,"/",impFile,sep=''))
 ph=rename(ph,id=LOAN_ID)
 ph$MONTH <- dmy(paste("01", ph$MONTH , sep =""))
 ph$RECEIVED_D <- dmy(paste("01", ph$RECEIVED_D , sep=""))
+ph$RECEIVED_D <- if_else(is.na(ph$RECEIVED_D),ph$MONTH,ph$RECEIVED_D)
 ph$IssuedDate <- dmy(paste("01", ph$IssuedDate , sep=""))
 ph$APPL_FICO_BAND <- as.integer(substring(ph$APPL_FICO_BAND,1,3))
 ph$PCO_RECOVERY=NULL
@@ -174,6 +175,8 @@ gc()
 
 # Function to calculate ROI for LC note
 # Making vars global for debugging purposes
+# Adj cash is discounting future payments by LC's default rate for late status
+# Proj cash uses probability curve plus LC late status
 lcROI <- function(nid,wLog=TRUE) {
 
   library(data.table)
@@ -321,6 +324,7 @@ lcROI <- function(nid,wLog=TRUE) {
 
 
 # Process all notes in parallel
+# cores = 6
 nids <- probSum$NoteID
 unlink(logFile)
 cl <- makeCluster(cores)

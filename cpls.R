@@ -106,9 +106,6 @@ source('scripts/load.R')
 info(log,'Loading zip code database')
 source('scripts/zip.R')
 
-info(log,'Loading model')
-load('data/model.rda')
-
 # Show start times if opMode is schedule
 if(opMode=='schedule') {
   for (time in startTimes) {
@@ -194,7 +191,8 @@ while (1) {
 
     # Add model probability to each loan  
     # All features must exist in loans data (will error if not)
-    loans$model <- predict(xgbModel, data.matrix(data.frame(predict(dmy, newdata=loans[,featureNames]))), missing=NA)
+    #newdata=rbind(featureDF,loans[,featureNames])[-1,]
+    loans$model <- predict(xgbModel, data.matrix(predict(dmy, newdata=loans[,featureNames])), missing=NA)
 
     # End if opMode is model
     if (opMode == 'model') {

@@ -10,6 +10,8 @@ library('xgboost')
 library('dplyr')
 library('arules')
 library('smbinning')
+library('lubridate')
+library('data.table')
 
 # Seed for model comparisons
 set.seed(1)
@@ -53,116 +55,77 @@ if(!dir.exists(dir)) {
   setwd(dir)
 }
 
-# Load data
-if (!exists('test')) { 
-  # Load saved model with stats
-  load('data/modelStats.rda')
-  statsModel <- stats
-  
-  # Load model and stats data
-  load('data/model.rda')
-  load('data/stats.rda')
-  
-  # Model only complete notes
-  stats = subset(stats,(loan_status=='Fully Paid' | loan_status=='Charged Off'))
-  
-  # Quick error checking
-  if ( nrow(stats) != nrow(statsModel)) stop('Row count not the same')
-  
-  # # Is note mature?
-  # stats$mature <- ifelse( stats$issue_d %m+% months(stats$term) <= as.Date(now()),TRUE,FALSE)
-  
-  stats$id <- NULL
-  stats$member_id <- NULL
-  stats$funded_amnt <- NULL
-  stats$funded_amnt_inv <- NULL
-  stats$empTitle <- NULL
-  stats$issue_d <- NULL
-  stats$url <- NULL
-  stats$desc <- NULL
-  stats$out_prncp <- NULL
-  stats$out_prncp_inv <- NULL
-  stats$total_pymnt <- NULL
-  stats$total_pymnt_inv <- NULL
-  stats$total_rec_prncp <- NULL
-  stats$total_rec_int <- NULL
-  stats$total_rec_late_fee <- NULL
-  stats$recoveries <- NULL
-  stats$collection_recovery_fee <- NULL
-  stats$stats$last_pymnt_d <- NULL
-  stats$last_pymnt_amnt <- NULL
-  stats$next_pymnt_d <- NULL
-  stats$next_pymnt_d <- NULL
-  stats$last_credit_pull_d <- NULL
-  stats$last_fico_range_high <- NULL
-  stats$policy_code <- NULL
-  stats$completeDate <- NULL
-  stats$remPrncp <- NULL
-  stats$total_int <- NULL
-  stats$fees <- NULL
-  stats$prnPaid <- NULL
-  stats$loss <- NULL
-  stats$title <- NULL
-  stats$ficoRangeHigh <- NULL
-  stats$pymnt_plan <- NULL
-  stats$last_pymnt_d <- NULL
-  stats$loan_status <- NULL
-  stats$memberId <- NULL
-  stats$fundedAmount <- NULL
-  stats$last_fico_range_low <- NULL
-
-  # Get model prediction
-  # stats$label <- as.factor(statsModel$label)
-  # stats$model <- predict(xgbModel, data.matrix(predict(dmy, newdata=test[,featureNames])), missing=NA)
-  # 
-
-  # Only use test set (data model has not seen)
-  test <- stats[-inTrain,]
-  
-  # Obtain model predictions
-  test$model <- predict(xgbModel, data.matrix(predict(dmy, newdata=test[,featureNames])), missing=NA)
-  
-  # Assume all test observations are fully paid
-  test$class = 1
-  test$class=as.factor(test$class)
-  
-  # Release memory
-  # rm(stats)
-  # rm(statsModel)
-  
-}
-
-
-
+# Load helper functions
+source('scripts/funcs.R')
 
 server <- function(input, output, session) { 
+  
+  # Load init scripts
+  output$loadInit = reactive({
+     # Initialize
+    source('scripts/initTool.R')
+    return(1)
+  })
+  outputOptions(output, 'loadInit', suspendWhenHidden=FALSE)
   
   # Filter test notes using filter text given
   data <- reactive ({
     if (input$filter != '') {
-      test %>%
-        filter_(input$filter)
+      stats[eval(parse(text=input$filter))]
     } else {
-      test
+      stats
     }
   })
-
-
-  # Confusion matrix
-  cm <- reactive({
-    # Obtain predicted class based on probability and optimal cutoff
-    caret::confusionMatrix(relevel(factor(data()$class,"1")),relevel(factor(data()$label),'1'))
+  
+  cash <- reactive ({
+     merge(x = ph, y = data()[,.(id)], by = "id")
   })
   
+  xirr <- reactive ({
+    cashOut <- cash()[, .(Month=min(Month),Payment=-max(Principal)), keyby = id]
+    cashIn <- cash()[,.(Month,Payment=Payment*.99)]
+    cashFlow <- rbind(cashIn,cashOut[,.(Month,Payment)])
+    xIRR(cashFlow[, .(Payment=sum(Payment)), keyby = Month]) * 100
+  })
+
+
   
-  output$test <- renderPrint({
-    nrow(data())
+  output$summary <-renderUI({
+    filteredNotes <- nrow(data())
+    pct <- round(filteredNotes/totalNotes*100,2)
+    co <- round(prop.table(table(data()$loan_status))[1],2)*100
+    age <- round(mean(data()$aol),2)
+    rate <- round(mean(data()$intRate),2)
+    fluidRow(
+      wellPanel(
+        fluidRow(
+          column(4,paste('Filtered Notes:',printNumber(filteredNotes))),
+          column(4,paste('Total Notes:',printNumber(totalNotes))),
+          column(4,paste('Filtered Percent: ',pct,'%',sep=''))
+        ),
+        fluidRow(
+          column(4,paste('XIRR: ',xirr(),'%',sep='')),
+          column(4,paste('Average Rate: ',rate,'%',sep='')),
+          column(4,paste('Age:',age,' Months'))
+        ),
+        fluidRow(
+          column(4,paste('Charged Off: ',co,'%',sep='')),
+          column(4,paste('Late 16: ','l16','%',sep='')),
+          column(4,paste('Late 31: ','l31','%',sep=''))
+        )
+      )       
+    )
+    
   })
-  output$plotROC <- renderPlot({
-    plotROC(actuals=data()$label,predictedScores=data()$model)
-  })
+
+  # output$noteCount <- renderText({
+  #   nrow(data())
+  # })
+  # output$plotROC <- renderPlot({
+  #   plotROC(actuals=data()$label,predictedScores=data()$model)
+  # })
   output$cm <- renderPrint({
-    cm()
+    caret::confusionMatrix(data()$class,data()$loan_status,'Fully Paid')
   })
 }
 
@@ -202,27 +165,29 @@ margin-top: 10px;
     verticalLayout(
       fluidRow(
         wellPanel(
-          fluidRow(
-              textareaInput("filter", "Filter", rows=4,'term==36')
+          conditionalPanel(
+            condition = "output.loadInit != 1",
+            h5('Loading data. Please be patient...')
           ),
           fluidRow(
-              submitButton("Submit")
+            textareaInput("filter", "Filter", rows=4)
+          ),
+          fluidRow(
+            submitButton("Submit")
           )
         )
       ),
       
       mainPanel(width=12,
         tabsetPanel(type = "tabs", 
-          tabPanel("Model",
+          tabPanel("Performance",
+            uiOutput('summary'),
             fluidRow(
               verbatimTextOutput ("cm")
-            ),
-            fluidRow(
-              plotOutput("plotROC")
-            ),
-            fluidRow(
-              verbatimTextOutput ("test")
             )
+            # fluidRow(
+            #   plotOutput("plotROC")
+            # )
           ), 
           tabPanel("Filter Builder", verbatimTextOutput("tesasdft")),
           tabPanel("Loan Statistics", verbatimTextOutput("tesadfsdft"))

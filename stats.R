@@ -55,27 +55,27 @@ statsDir <- 'C:/temp'
 
 
 # Read in Lending Club statistics
-stats1=read.csv(paste(statsDir,'LoanStats3a_securev1.csv',sep='/'),header=TRUE,skip=1)
+stats1=read.csv(paste(statsDir,'LoanStats3a_securev1.csv',sep='/'),na.strings=c(""," ","NA"),header=TRUE,skip=1)
 stats1 <- stats1[!is.na(stats1$loan_amnt),]
 stats1$id=as.integer(as.character(stats1$id))
 
-stats2=read.csv(paste(statsDir,'LoanStats3b_securev1.csv',sep='/'),header=TRUE,skip=1)
+stats2=read.csv(paste(statsDir,'LoanStats3b_securev1.csv',sep='/'),na.strings=c(""," ","NA"),header=TRUE,skip=1)
 stats2 <- stats2[!is.na(stats2$loan_amnt),]
 stats2$id=as.integer(as.character(stats2$id))
 
-stats3=read.csv(paste(statsDir,'LoanStats3c_securev1.csv',sep='/'),header=TRUE,skip=1)
+stats3=read.csv(paste(statsDir,'LoanStats3c_securev1.csv',sep='/'),na.strings=c(""," ","NA"),header=TRUE,skip=1)
 stats3 <- stats3[!is.na(stats3$loan_amnt),]
 stats3$id=as.integer(as.character(stats3$id))
 
-stats4=read.csv(paste(statsDir,'LoanStats3d_securev1.csv',sep='/'),header=TRUE,skip=1)
+stats4=read.csv(paste(statsDir,'LoanStats3d_securev1.csv',sep='/'),na.strings=c(""," ","NA"),header=TRUE,skip=1)
 stats4 <- stats4[!is.na(stats4$loan_amnt),]
 stats4$id=as.integer(as.character(stats4$id))
 
-stats5=read.csv(paste(statsDir,'LoanStats_securev1_2016Q1.csv',sep='/'),header=TRUE,skip=1)
+stats5=read.csv(paste(statsDir,'LoanStats_securev1_2016Q1.csv',sep='/'),na.strings=c(""," ","NA"),header=TRUE,skip=1)
 stats5 <- stats5[!is.na(stats5$loan_amnt),]
 stats5$id <- as.integer(as.character(stats5$id))
 
-stats6=read.csv(paste(statsDir,'LoanStats_securev1_2016Q2.csv',sep='/'),header=TRUE,skip=1)
+stats6=read.csv(paste(statsDir,'LoanStats_securev1_2016Q2.csv',sep='/'),na.strings=c(""," ","NA"),header=TRUE,skip=1)
 stats6 <- stats6[!is.na(stats6$loan_amnt),]
 stats6$id=as.integer(as.character(stats6$id))
 
@@ -99,8 +99,9 @@ names(stats2)[names(stats2)=="is_inc_v"] <- "verification_status"
 # stats <- smartbind(stats1,stats2)
 
 # Combine all LC stats into one stats frame
-stats <- rbind.fill(list(stats1,stats2,stats3,stats4,stats5,stats6))
+stats <- rbind.fill(list(stats6,stats5,stats4,stats3,stats2,stats1))
 # stats <- data.table::rbindlist(list(stats1,stats2,stats3,stats4,stats5,stats6),fill = TRUE)
+
 
 # Rename columns to match LC API
 names(stats)[names(stats)=="loan_amnt"] <- "loanAmount"
@@ -192,7 +193,7 @@ names(stats)[names(stats)=="member_id"] <- "memberId"
 names(stats)[names(stats)=="delinq_amnt"] <- "delinqAmnt"
 names(stats)[names(stats)=="all_util"] <- "allUtil"
 
-# stats cleansing
+# stats cleansing and engineering
 stats$empLength=suppressWarnings(as.integer(as.character(revalue(stats$empLength,c("< 1 year"="0", "1 year"="12", "10+ years"="120", 
   "2 years"="24", "3 years"="36", "4 years"="48", "5 years"="60", "6 years"="72", 
   "7 years"="84", "8 years"="96", "9 years"="108")))))
@@ -208,13 +209,15 @@ stats$last_pymnt_d=as.Date(format(strptime(paste("01", stats$last_pymnt_d, sep =
 stats$term <-as.integer(as.character(gsub(" months", "", stats$term)))
 stats$intRate <-as.numeric(as.character(gsub("%", "", stats$intRate)))
 
-# Feature engineering
 stats$earliestCrLine <- as.Date(format(strptime(paste("01", stats$earliestCrLine, sep = "-"), format = "%d-%b-%Y"), "%Y-%m-%d"))
 stats$n=ymd(Sys.Date())
 stats$earliestCrLineMonths=as.integer(round((stats$n - stats$earliestCrLine)/30.4375)-1)
 stats$amountTerm <- stats$loanAmount/stats$term
 stats$amountTermIncomeRatio=stats$amountTerm/(stats$annualInc/12)
 stats$revolBalAnnualIncRatio=stats$revolBal/stats$annualInc
+
+# Ensure factors are properly formated similar to API responses
+stats$isIncVJoint <- as.factor(gsub(' ','_',toupper(stats$isIncVJoint)))
 
 # Add in zip code stats
 source('scripts/zip.R')

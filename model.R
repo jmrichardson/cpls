@@ -158,9 +158,13 @@ featureNames <- c("loanAmount",
   "revolBalAnnualIncRatio",
   "population",
   "avgWage")
-stats <- stats[,featureNames,with=FALSE]                     
+stats <- stats[,featureNames,with=FALSE]  
+
+# Create empty data frame to record structure of independent variables
+featureDF=subset(as.data.frame(head(stats,1)),select=featureNames)
 
 # Convert to numeric (xgboost requires numeric)
+stats <- data.frame(stats)
 dmy <- dummyVars(" ~ .", data = stats)
 stats <- data.frame(predict(dmy, newdata = stats))
 
@@ -262,13 +266,16 @@ print(results)
 
 # Quick plot of AUC
 actual <- test$label
+test$label <- NULL
 pred <- predict(xgbModel, data.matrix(test), missing=NA) 
 AUROC(actual, pred)
 
-# Save model and train/test data
-save(xgbModel,results,params,inTrain,featureNames,dmy, file='data/model.rda')
+actual <- trainLabel
+pred <- predict(xgbModel, data.matrix(train), missing=NA)
+AUROC(actual, pred)
 
-# Label as test or train data
+# Save model and train/test data
+save(xgbModel,results,params,inTrain,featureNames,featureDF,dmy, file='data/model.rda')
 
 # Create sets data frame to record which loans were in train and test set
 sets = as.data.frame(id)

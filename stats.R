@@ -1,5 +1,7 @@
 # Process LC statistics
 
+options(scipen=999)
+
 # Load libraries
 library('plyr')
 library('dplyr')
@@ -212,9 +214,10 @@ stats$intRate <-as.numeric(as.character(gsub("%", "", stats$intRate)))
 stats$earliestCrLine <- as.Date(format(strptime(paste("01", stats$earliestCrLine, sep = "-"), format = "%d-%b-%Y"), "%Y-%m-%d"))
 stats$n=ymd(Sys.Date())
 stats$earliestCrLineMonths=as.integer(round((stats$n - stats$earliestCrLine)/30.4375)-1)
+stats$n=NULL
 stats$amountTerm <- stats$loanAmount/stats$term
-stats$amountTermIncomeRatio=stats$amountTerm/(stats$annualInc/12)
-stats$revolBalAnnualIncRatio=stats$revolBal/stats$annualInc
+stats$amountTermIncomeRatio=ifelse(stats$annualInc!=0,stats$amountTerm/(stats$annualInc/12),NA)
+stats$revolBalAnnualIncRatio=ifelse(stats$annualInc!=0,stats$revolBal/stats$annualInc,NA)
 
 # Ensure factors are properly formated similar to API responses
 stats$isIncVJoint <- as.factor(gsub(' ','_',toupper(stats$isIncVJoint)))

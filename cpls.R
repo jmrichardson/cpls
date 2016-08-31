@@ -106,6 +106,8 @@ source('scripts/load.R')
 info(log,'Loading zip code database')
 source('scripts/zip.R')
 
+load('store/loansArchive.rda')
+
 # Show start times if opMode is schedule
 if(opMode=='schedule') {
   for (time in startTimes) {
@@ -202,7 +204,7 @@ while (1) {
     #loans$model <- predict(xgbModel, data.matrix(predict(dmy, newdata)), missing=NA)
     # stats$model <- predict(xgbModel, data.matrix(predict(dmy, newdata=stats[,featureNames])), missing=NA)
     loans$model <- predict(xgbModel, data.matrix(predict(dmy, newdata=loans[,featureNames])), missing=NA)
-
+    
     # End if opMode is model
     if (opMode == 'model') {
       info(log, 'Model complete')
@@ -446,6 +448,11 @@ while (1) {
     
     # Create report per user
     source('scripts/report.R', local=TRUE)
+    
+    # Save all loans to archive
+    loansArchive <- rbind(loansArchive,loans)
+    save(loansArchive, file='store/loansArchive.rda')
+    
     
     # Save the loans for testing purposes
     # write.csv(loans,row.names=FALSE,na='',file=paste('store/',gsub(':','-',listTime),' loans.csv',sep=''))

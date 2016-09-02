@@ -14,6 +14,9 @@ library(tools)
 library(xgboost)
 library(caret)
 
+# Turn warnings into errors
+options(warn=2)
+
 # Function to set home directory
 defaultDir = '/home/user/cpls'
 csf <- function() {

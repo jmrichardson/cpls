@@ -199,11 +199,8 @@ while (1) {
     loans$revolBalAnnualIncRatio=ifelse(loans$annualInc!=0,loans$revolBal/loans$annualInc,NA)
 
     # Add model probability to each loan  
-    # All features must exist in loans data (will error if not)
-    #newdata=rbind(featureDF,loans[,featureNames])[-1,]
-    #loans$model <- predict(xgbModel, data.matrix(predict(dmy, newdata)), missing=NA)
-    # stats$model <- predict(xgbModel, data.matrix(predict(dmy, newdata=stats[,featureNames])), missing=NA)
-    loans$model <- predict(xgbModel, predict(dmy, newdata=loans[,featureNames]), missing=NA)
+    newdata=rbind(featureDF,loans[,featureNames])[-1,]
+    loans$model <- predict(xgbModel, predict(dmy, newdata), missing=NA)
     
     # End if opMode is model
     if (opMode == 'model') {

@@ -191,7 +191,7 @@ while (1) {
     # loans$amountTermIncomeRatio=loans$amountTerm/(loans$annualInc/12)
     # loans$revolBalAnnualIncRatio=loans$revolBal/loans$annualInc
     
-    loans$earliestCrLine <- as.Date(format(strptime(paste("01", loans$earliestCrLine, sep = "-"), format = "%d-%b-%Y"), "%Y-%m-%d"))
+    loans$earliestCrLine <- as.Date(substr(loans$earliestCrLine, start=1, stop=10))
     loans$n=ymd(Sys.Date())
     loans$earliestCrLineMonths=as.integer(round((loans$n - loans$earliestCrLine)/30.4375)-1)
     loans$amountTerm <- loans$loanAmount/loans$term
@@ -203,7 +203,7 @@ while (1) {
     #newdata=rbind(featureDF,loans[,featureNames])[-1,]
     #loans$model <- predict(xgbModel, data.matrix(predict(dmy, newdata)), missing=NA)
     # stats$model <- predict(xgbModel, data.matrix(predict(dmy, newdata=stats[,featureNames])), missing=NA)
-    loans$model <- predict(xgbModel, data.matrix(predict(dmy, newdata=loans[,featureNames])), missing=NA)
+    loans$model <- predict(xgbModel, predict(dmy, newdata=loans[,featureNames]), missing=NA)
     
     # End if opMode is model
     if (opMode == 'model') {

@@ -158,22 +158,28 @@ featureNames <- c("loanAmount",
   "revolBalAnnualIncRatio",
   "population",
   "avgWage")
-stats <- stats[,featureNames,with=FALSE]  
+stats <- data.frame(stats[,featureNames,with=FALSE])
 
-# Create empty data frame to record structure of independent variables
+# Remove predictors with more than x% NAa
+stats = stats[,!colSums(is.na(stats)) > nrow(stats)*.17]
+
+# # Remove near zero variance predictors
+# nzv <- nearZeroVar(stats)
+# stats <- stats[,-nzv]
+
+# Predictors
+featureNames <- names(stats)
+
+# Create empty data frame to record class and structure of predictors
 featureDF=subset(as.data.frame(head(stats,1)),select=featureNames)
 
 # Convert to numeric (xgboost requires numeric)
-stats <- data.frame(stats)
 dmy <- dummyVars(" ~ .", data = stats)
 stats <- data.frame(predict(dmy, newdata = stats))
 
 # Add back label
 stats$label <- label
 
-#
-# Stop here if prep'ing for model testing
-#
 
 # Create stratified train and test partition
 inTrain <- createDataPartition(stats$label,p=0.75, list=FALSE)

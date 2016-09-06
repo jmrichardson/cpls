@@ -203,6 +203,7 @@ while (1) {
 
     # Add model probability to each loan  
     newdata=rbind(featureDF,loans[,featureNames])[-1,]
+    matrix=predict(dmy, newdata)
     loans$model <- predict(xgbModel, predict(dmy, newdata), missing=NA)
     
     # End if opMode is model

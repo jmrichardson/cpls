@@ -7,7 +7,7 @@ impFile <- 'PMTHIST_all_20160715.csv'
 debug=TRUE
 cores=2
 tmpDir='C:/temp'
-tmpDir='/var/tmp'
+# tmpDir='/var/tmp'
 logFile=paste(tmpDir,"/roi.log",sep="")
 
 # Load required packages

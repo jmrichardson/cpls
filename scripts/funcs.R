@@ -37,6 +37,8 @@ reqFile <- function(file) {
 gURL <- function(url,token) {
   res <- getURL(url,
     httpheader = c('Authorization' = token,
+    ssl.verifypeer = FALSE,
+    ssl.verifyhost = FALSE,
     'Accept' = "application/json",
     'Content-type' = "application/json"))
   return(res)

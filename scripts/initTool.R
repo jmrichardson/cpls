@@ -14,6 +14,4 @@ if (!exists('stats') | !exists('ph')) {
   # Filter payment history by stats id
   ph <- merge(x = ph, y = stats[,.(id)], by = "id")
 
-  # Total fully paid and charged off notes
-  totalNotes <- nrow(stats)
 }

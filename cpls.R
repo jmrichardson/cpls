@@ -109,7 +109,7 @@ source('scripts/load.R')
 info(log,'Loading zip code database')
 source('scripts/zip.R')
 
-load('store/loansArchive.rda')
+# load('store/loansArchive.rda')
 
 # Show start times if opMode is schedule
 if(opMode=='schedule') {
@@ -172,7 +172,7 @@ while (1) {
       apiTimeElapse=4
       loans <- read.csv('data/loans_sample.csv')
       loans$initialListStatus <- as.factor(ifelse(loans$initialListStatus==FALSE,'F','T'))
-    } else if (opMode == 'model') {
+    } else if (opMode == 'model' | opMode == 'runOnce') {
       newJson <- gURL(urlLoanListAll,users[[i]]$token)
       loans = fromJSON(newJson)$loans
     }

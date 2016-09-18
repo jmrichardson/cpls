@@ -68,13 +68,26 @@ server <- function(input, output, session) {
   })
   outputOptions(output, 'loadInit', suspendWhenHidden=FALSE)
   
-  # Filter test notes using filter text given
-  data <- reactive ({
-    if (input$filter != '') {
-      stats[eval(parse(text=input$filter))]
+  base <- reactive ({
+    if (input$base != '') {
+      stats[eval(parse(text=input$base))]
     } else {
       stats
     }
+  })
+  
+  # Filter test notes using filter text given
+  data <- reactive ({
+    # User filter
+    if (input$filter != '') {
+      base()[eval(parse(text=input$filter))]
+    } else {
+      base()
+    }
+  })
+  
+  totalNotes <- reactive ({
+    nrow(base())
   })
   
   cash <- reactive ({
@@ -92,7 +105,7 @@ server <- function(input, output, session) {
   
   output$summary <-renderUI({
     filteredNotes <- nrow(data())
-    pct <- round(filteredNotes/totalNotes*100,2)
+    pct <- round(filteredNotes/totalNotes()*100,2)
     co <- round(prop.table(table(data()$loan_status))[1],2)*100
     age <- round(mean(data()$aol),2)
     rate <- round(mean(data()$intRate),2)
@@ -100,7 +113,7 @@ server <- function(input, output, session) {
       wellPanel(
         fluidRow(
           column(4,paste('Filtered Notes:',printNumber(filteredNotes))),
-          column(4,paste('Total Notes:',printNumber(totalNotes))),
+          column(4,paste('Total Notes:',printNumber(totalNotes()))),
           column(4,paste('Filtered Percent: ',pct,'%',sep=''))
         ),
         fluidRow(
@@ -152,6 +165,10 @@ margin-top: 10px;
         .alert {
           margin-left: 20px;
         }
+        .col-sm-6 {
+          padding-left: 0px;
+          padding-right: 10px;
+        }
         textarea {
           width: 100%; 
           margin-top: 5px;
@@ -170,7 +187,8 @@ margin-top: 10px;
             h5('Loading data. Please be patient...')
           ),
           fluidRow(
-            textareaInput("filter", "Filter", rows=4)
+            column(6,textareaInput("base", "Base", rows=4)),
+            column(6,textareaInput("filter", "Filter", rows=4))
           ),
           fluidRow(
             submitButton("Submit")

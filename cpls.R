@@ -109,8 +109,6 @@ source('scripts/load.R')
 info(log,'Loading zip code database')
 source('scripts/zip.R')
 
-# load('store/loansArchive.rda')
-
 # Show start times if opMode is schedule
 if(opMode=='schedule') {
   for (time in startTimes) {
@@ -451,8 +449,15 @@ while (1) {
     source('scripts/report.R', local=TRUE)
     
     # Save all loans to archive
-    loansArchive <- rbind(loansArchive,loans)
-    save(loansArchive, file='store/loansArchive.rda')
+    if (file.exists(archive)) {
+      load(archive)
+      loanArchive <- rbind(loans,loanArchive)
+      save(loanArchive, file=archive)
+    } else {
+      loanArchive <- loans
+      save(loanArchive, file=archive)
+    }
+    
     
     
     # Save the loans for testing purposes

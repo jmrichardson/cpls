@@ -50,6 +50,9 @@ gURL <- function(url,token) {
 ### Advanced configuration below - Do NOT MODIFY
 ###############################################################################
 
+# Loan Archive
+archive <- 'store/loanArchive.rda'
+
 # LC API Version
 apiVersion = "v1"
 

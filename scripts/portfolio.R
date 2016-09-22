@@ -32,6 +32,7 @@ for (i in 1:length(users)) {
       info(log,paste('User (',users[[i]]$name,') - Post cash available: ',printCurrency(users[[i]]$post$cash),sep=""))
       break
     }
+    Sys.sleep(1)
   }
   
 
@@ -65,6 +66,7 @@ for (i in 1:length(users)) {
       info(log,paste('User (',users[[i]]$name,') - Received Interest: $',users[[i]]$post$receivedInterest,sep=""))
       break
     }
+    Sys.sleep(1)
   }
 
 

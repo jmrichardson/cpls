@@ -35,13 +35,17 @@ reqFile <- function(file) {
 
 # Function for getURL error handling
 gURL <- function(url,token) {
-  res <- getURL(url,
+  res <- tryCatch(getURL(url,
     httpheader = c('Authorization' = token,
-    ssl.verifypeer = FALSE,
-    ssl.verifyhost = FALSE,
+    # ssl.verifypeer = FALSE,
+    # ssl.verifyhost = FALSE,
     'Accept' = "application/json",
     'Content-type' = "application/json"))
-  return(res)
+  , error = function(e) {
+    warn(log,paste('User (',users[[i]]$name,') - ',e,sep=""))
+    ""
+  })
+    return(res)
 }
 
 
